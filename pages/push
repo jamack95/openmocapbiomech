@@ -1,0 +1,3 @@
+git add .
+git commit -m "Fixed missing index.js"
+git push origin main
