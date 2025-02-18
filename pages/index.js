@@ -1,7 +1,3 @@
-export default function Home() {
-  return <h1>OpenMoCapBiomech - Motion Capture is Live</h1>;
-}
-
 import { useEffect, useRef, useState } from "react";
 import * as poseDetection from "@tensorflow-models/pose-detection";
 import "@tensorflow/tfjs";
@@ -72,7 +68,7 @@ export default function Home() {
 
   return (
     <div style={{ textAlign: "center" }}>
-      <h1>Biomechanics Motion Capture</h1>
+      <h1>OpenMoCapBiomech - Motion Capture is Live</h1>
       <video ref={videoRef} autoPlay playsInline width="640" height="480" style={{ border: "1px solid black" }} />
       <canvas ref={canvasRef} width="640" height="480" style={{ position: "absolute", top: 0, left: 0 }} />
       <div>
