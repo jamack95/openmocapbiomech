@@ -1,3 +1,7 @@
+export default function Home() {
+  return <h1>OpenMoCapBiomech - Motion Capture is Live</h1>;
+}
+
 import { useEffect, useRef, useState } from "react";
 import * as poseDetection from "@tensorflow-models/pose-detection";
 import "@tensorflow/tfjs";
