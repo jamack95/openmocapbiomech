@@ -96,14 +96,17 @@
     
     // --- Data Logging Setup ---
     const maxDataPoints = 100;
-    const timeLabels = [];
-    const leftFlexData = [];
-    const leftAbdData = [];
-    const leftRotData = [];
-    const rightFlexData = [];
-    const rightAbdData = [];
-    const rightRotData = [];
+    let timeLabels = [];
+    let leftFlexData = [];
+    let leftAbdData = [];
+    let leftRotData = [];
+    let rightFlexData = [];
+    let rightAbdData = [];
+    let rightRotData = [];
     let startTime = Date.now();
+    
+    // Flag to determine if we're logging data for a recording session
+    let isRecordingSession = false;
     
     // --- Initialize Chart.js ---
     const ctxChart = document.getElementById('chartCanvas').getContext('2d');
@@ -123,25 +126,42 @@
       options: {
         animation: false,
         scales: {
-          x: {
-            title: { display: true, text: 'Time (s)' }
-          },
-          y: {
-            title: { display: true, text: 'Angle (°)' }
-          }
+          x: { title: { display: true, text: 'Time (s)' } },
+          y: { title: { display: true, text: 'Angle (°)' } }
         }
       }
     });
     
-    // --- MediaRecorder Setup ---
+    // --- MediaRecorder Setup for video recording ---
     let mediaRecorder = null;
     let recordedChunks = [];
     const startRecordingBtn = document.getElementById('startRecording');
     const stopRecordingBtn = document.getElementById('stopRecording');
     
     startRecordingBtn.addEventListener('click', () => {
-      // Capture stream from the output canvas (which shows video + overlays)
-      const stream = canvasElement.captureStream(30); // 30 FPS
+      // Clear previous data for the new session
+      timeLabels = [];
+      leftFlexData = [];
+      leftAbdData = [];
+      leftRotData = [];
+      rightFlexData = [];
+      rightAbdData = [];
+      rightRotData = [];
+      chart.data.labels = timeLabels;
+      chart.data.datasets[0].data = leftFlexData;
+      chart.data.datasets[1].data = leftAbdData;
+      chart.data.datasets[2].data = leftRotData;
+      chart.data.datasets[3].data = rightFlexData;
+      chart.data.datasets[4].data = rightAbdData;
+      chart.data.datasets[5].data = rightRotData;
+      chart.update();
+      
+      // Begin logging data for this recording session
+      isRecordingSession = true;
+      startTime = Date.now();
+      
+      // Start capturing video from the output canvas (30 FPS)
+      const stream = canvasElement.captureStream(30);
       mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
       recordedChunks = [];
       mediaRecorder.ondataavailable = (e) => {
@@ -171,9 +191,11 @@
     stopRecordingBtn.addEventListener('click', () => {
       if (mediaRecorder) {
         mediaRecorder.stop();
-        startRecordingBtn.disabled = false;
-        stopRecordingBtn.disabled = true;
       }
+      // Stop logging data
+      isRecordingSession = false;
+      startRecordingBtn.disabled = false;
+      stopRecordingBtn.disabled = true;
     });
     
     // --- Download Graph as PNG ---
@@ -208,8 +230,7 @@
       a.click();
     });
     
-    // --- Utility Functions ---
-    // Calculate angle between three points (each with x and y)
+    // --- Utility Function: Calculate angle between three points (each with x and y) ---
     function calculateAngle(A, B, C) {
       const AB = { x: A.x - B.x, y: A.y - B.y };
       const CB = { x: C.x - B.x, y: C.y - B.y };
@@ -220,7 +241,7 @@
       return angleRad * (180 / Math.PI);
     }
     
-    // Draw small red dots for landmarks, skipping face landmarks (indexes 0-10)
+    // --- Utility Function: Draw small red dots for landmarks (skipping face landmarks 0-10) ---
     function drawLandmarks(landmarks) {
       landmarks.forEach((landmark, index) => {
         if (index < 11) return;
@@ -248,14 +269,11 @@
         const leftWrist = results.poseLandmarks[15];
         let leftFlexAngle = null, leftAbdAngle = null, leftRotAngle = null;
         if (leftShoulder && leftElbow && leftWrist) {
-          // Flexion: vertical reference (point directly below shoulder)
           const verticalRefL = { x: leftShoulder.x, y: leftShoulder.y + 0.1 };
           leftFlexAngle = calculateAngle(verticalRefL, leftShoulder, leftElbow);
-          // Abduction: arctan of horizontal difference / vertical difference
           const diffXLeft = Math.abs(leftElbow.x - leftShoulder.x);
           const diffYLeft = Math.abs(leftElbow.y - leftShoulder.y);
           leftAbdAngle = Math.atan(diffXLeft / diffYLeft) * (180 / Math.PI);
-          // Rotation heuristic: difference in x between wrist and elbow (scaled)
           leftRotAngle = (leftWrist.x - leftElbow.x) * 100;
           
           document.getElementById('leftFlex').innerText = 'Flexion: ' + leftFlexAngle.toFixed(1) + '°';
@@ -281,8 +299,8 @@
           document.getElementById('rightRot').innerText = 'Rotation (approx.): ' + rightRotAngle.toFixed(1) + '°';
         }
         
-        // Log data only if all measurements are available
-        if (leftFlexAngle !== null && leftAbdAngle !== null && leftRotAngle !== null &&
+        // Log data only if we're in a recording session
+        if (isRecordingSession && leftFlexAngle !== null && leftAbdAngle !== null && leftRotAngle !== null &&
             rightFlexAngle !== null && rightAbdAngle !== null && rightRotAngle !== null) {
           const currentTime = ((Date.now() - startTime) / 1000).toFixed(2);
           timeLabels.push(currentTime);
@@ -293,7 +311,6 @@
           rightAbdData.push(rightAbdAngle);
           rightRotData.push(rightRotAngle);
           
-          // Limit arrays to maximum length
           if (timeLabels.length > maxDataPoints) {
             timeLabels.shift();
             leftFlexData.shift();
