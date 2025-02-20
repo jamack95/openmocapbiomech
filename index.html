@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Data Logging & Visualization – Upper Body Mobility Tracker</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
+      text-align: center;
+      padding: 20px;
+    }
+    #videoContainer {
+      position: relative;
+      width: 640px;
+      margin: 0 auto;
+    }
+    /* The video element is hidden; we use its frames via MediaPipe */
+    #input_video {
+      display: none;
+    }
+    #output_canvas {
+      width: 640px;
+      height: 480px;
+      border: 2px solid #333;
+      border-radius: 8px;
+      background: #000;
+      margin-bottom: 20px;
+    }
+    .angleDisplay {
+      font-size: 18px;
+      margin-top: 10px;
+    }
+    .sideTitle {
+      font-weight: bold;
+      margin-top: 20px;
+    }
+    #chartContainer {
+      width: 640px;
+      margin: 20px auto;
+    }
+  </style>
+</head>
+<body>
+  <h1>Upper Body Mobility Tracker with Data Logging</h1>
+  <div id="videoContainer">
+    <video id="input_video" autoplay playsinline></video>
+    <canvas id="output_canvas"></canvas>
+  </div>
+  
+  <div class="sideTitle">Left Shoulder</div>
+  <div id="leftFlex" class="angleDisplay">Flexion: --°</div>
+  <div id="leftAbd" class="angleDisplay">Abduction: --°</div>
+  <div id="leftRot" class="angleDisplay">Rotation (approx.): --°</div>
+  
+  <div class="sideTitle">Right Shoulder</div>
+  <div id="rightFlex" class="angleDisplay">Flexion: --°</div>
+  <div id="rightAbd" class="angleDisplay">Abduction: --°</div>
+  <div id="rightRot" class="angleDisplay">Rotation (approx.): --°</div>
+  
+  <div id="chartContainer">
+    <canvas id="chartCanvas" width="640" height="300"></canvas>
+  </div>
+  
+  <!-- MediaPipe libraries -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+  <!-- Chart.js library -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  
+  <script>
+    // --- Setup for video & canvas ---
+    const videoElement = document.getElementById('input_video');
+    const canvasElement = document.getElementById('output_canvas');
+    const canvasCtx = canvasElement.getContext('2d');
+    
+    // --- Data Logging Setup ---
+    const maxDataPoints = 100;
+    const timeLabels = [];
+    const leftFlexData = [];
+    const leftAbdData = [];
+    const leftRotData = [];
+    const rightFlexData = [];
+    const rightAbdData = [];
+    const rightRotData = [];
+    let startTime = Date.now();
+    
+    // Initialize Chart.js
+    const ctxChart = document.getElementById('chartCanvas').getContext('2d');
+    const chart = new Chart(ctxChart, {
+      type: 'line',
+      data: {
+        labels: timeLabels,
+        datasets: [
+          { label: 'Left Flexion', data: leftFlexData, borderColor: 'red', fill: false, tension: 0.1 },
+          { label: 'Left Abduction', data: leftAbdData, borderColor: 'blue', fill: false, tension: 0.1 },
+          { label: 'Left Rotation', data: leftRotData, borderColor: 'green', fill: false, tension: 0.1 },
+          { label: 'Right Flexion', data: rightFlexData, borderColor: 'orange', fill: false, tension: 0.1 },
+          { label: 'Right Abduction', data: rightAbdData, borderColor: 'purple', fill: false, tension: 0.1 },
+          { label: 'Right Rotation', data: rightRotData, borderColor: 'brown', fill: false, tension: 0.1 }
+        ]
+      },
+      options: {
+        animation: false,
+        scales: {
+          x: {
+            title: { display: true, text: 'Time (s)' }
+          },
+          y: {
+            title: { display: true, text: 'Angle (°)' }
+          }
+        }
+      }
+    });
+    
+    // --- Utility Functions ---
+    // Calculate angle between three points (points have properties x and y)
+    function calculateAngle(A, B, C) {
+      const AB = { x: A.x - B.x, y: A.y - B.y };
+      const CB = { x: C.x - B.x, y: C.y - B.y };
+      const dot = AB.x * CB.x + AB.y * CB.y;
+      const magAB = Math.sqrt(AB.x * AB.x + AB.y * AB.y);
+      const magCB = Math.sqrt(CB.x * CB.x + CB.y * CB.y);
+      const angleRad = Math.acos(dot / (magAB * magCB));
+      return angleRad * (180 / Math.PI);
+    }
+    
+    // Draw small red dots for landmarks, skipping face landmarks (indexes 0–10)
+    function drawLandmarks(landmarks) {
+      landmarks.forEach((landmark, index) => {
+        if (index < 11) return;
+        const x = landmark.x * canvasElement.width;
+        const y = landmark.y * canvasElement.height;
+        canvasCtx.beginPath();
+        canvasCtx.arc(x, y, 3, 0, 2 * Math.PI);
+        canvasCtx.fillStyle = 'red';
+        canvasCtx.fill();
+      });
+    }
+    
+    // --- onResults Callback ---
+    function onResults(results) {
+      canvasCtx.save();
+      canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+      canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+      
+      if (results.poseLandmarks) {
+        drawLandmarks(results.poseLandmarks);
+        
+        // LEFT SIDE calculations (landmarks 11, 13, 15)
+        const leftShoulder = results.poseLandmarks[11];
+        const leftElbow = results.poseLandmarks[13];
+        const leftWrist = results.poseLandmarks[15];
+        let leftFlexAngle = null, leftAbdAngle = null, leftRotAngle = null;
+        if (leftShoulder && leftElbow && leftWrist) {
+          // Flexion: using a vertical reference point (directly below the shoulder)
+          const verticalRefL = { x: leftShoulder.x, y: leftShoulder.y + 0.1 };
+          leftFlexAngle = calculateAngle(verticalRefL, leftShoulder, leftElbow);
+          // Abduction: arctan of horizontal diff over vertical diff
+          const diffXLeft = Math.abs(leftElbow.x - leftShoulder.x);
+          const diffYLeft = Math.abs(leftElbow.y - leftShoulder.y);
+          leftAbdAngle = Math.atan(diffXLeft / diffYLeft) * (180 / Math.PI);
+          // Rotation heuristic: difference in x between wrist and elbow (scaled)
+          leftRotAngle = (leftWrist.x - leftElbow.x) * 100;
+          
+          document.getElementById('leftFlex').innerText = 'Flexion: ' + leftFlexAngle.toFixed(1) + '°';
+          document.getElementById('leftAbd').innerText = 'Abduction: ' + leftAbdAngle.toFixed(1) + '°';
+          document.getElementById('leftRot').innerText = 'Rotation (approx.): ' + leftRotAngle.toFixed(1) + '°';
+        }
+        
+        // RIGHT SIDE calculations (landmarks 12, 14, 16)
+        const rightShoulder = results.poseLandmarks[12];
+        const rightElbow = results.poseLandmarks[14];
+        const rightWrist = results.poseLandmarks[16];
+        let rightFlexAngle = null, rightAbdAngle = null, rightRotAngle = null;
+        if (rightShoulder && rightElbow && rightWrist) {
+          const verticalRefR = { x: rightShoulder.x, y: rightShoulder.y + 0.1 };
+          rightFlexAngle = calculateAngle(verticalRefR, rightShoulder, rightElbow);
+          const diffXRight = Math.abs(rightElbow.x - rightShoulder.x);
+          const diffYRight = Math.abs(rightElbow.y - rightShoulder.y);
+          rightAbdAngle = Math.atan(diffXRight / diffYRight) * (180 / Math.PI);
+          rightRotAngle = (rightElbow.x - rightWrist.x) * 100;
+          
+          document.getElementById('rightFlex').innerText = 'Flexion: ' + rightFlexAngle.toFixed(1) + '°';
+          document.getElementById('rightAbd').innerText = 'Abduction: ' + rightAbdAngle.toFixed(1) + '°';
+          document.getElementById('rightRot').innerText = 'Rotation (approx.): ' + rightRotAngle.toFixed(1) + '°';
+        }
+        
+        // Log the data for charting if all angles are computed
+        if (leftFlexAngle !== null && leftAbdAngle !== null && leftRotAngle !== null &&
+            rightFlexAngle !== null && rightAbdAngle !== null && rightRotAngle !== null) {
+          const currentTime = ((Date.now() - startTime) / 1000).toFixed(2);
+          timeLabels.push(currentTime);
+          leftFlexData.push(leftFlexAngle);
+          leftAbdData.push(leftAbdAngle);
+          leftRotData.push(leftRotAngle);
+          rightFlexData.push(rightFlexAngle);
+          rightAbdData.push(rightAbdAngle);
+          rightRotData.push(rightRotAngle);
+          
+          // Limit the data arrays to the max length
+          if (timeLabels.length > maxDataPoints) {
+            timeLabels.shift();
+            leftFlexData.shift();
+            leftAbdData.shift();
+            leftRotData.shift();
+            rightFlexData.shift();
+            rightAbdData.shift();
+            rightRotData.shift();
+          }
+          chart.update();
+        }
+      }
+      canvasCtx.restore();
+    }
+    
+    // --- MediaPipe Pose Setup ---
+    const pose = new Pose({
+      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
+    });
+    pose.setOptions({
+      modelComplexity: 1,
+      smoothLandmarks: true,
+      minDetectionConfidence: 0.5,
+      minTrackingConfidence: 0.5
+    });
+    pose.onResults(onResults);
+    
+    // --- Camera Setup using MediaPipe Camera Utils ---
+    const camera = new Camera(videoElement, {
+      onFrame: async () => {
+        await pose.send({ image: videoElement });
+      },
+      width: 640,
+      height: 480
+    });
+    camera.start();
+  </script>
+</body>
+</html>
