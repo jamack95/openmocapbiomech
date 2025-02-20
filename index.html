@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Upper Body Mobility Tracker – Data Logging & Recording</title>
+  <title>Mobility Tracker – Upper & Lower Body</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -11,15 +11,26 @@
       text-align: center;
       padding: 20px;
     }
+    /* Tab switcher buttons */
+    #tabSwitcher {
+      margin-bottom: 20px;
+    }
+    #tabSwitcher button {
+      margin: 0 10px;
+      padding: 10px 20px;
+      font-size: 16px;
+    }
+    /* Common video container */
     #videoContainer {
       position: relative;
       width: 640px;
-      margin: 0 auto;
+      margin: 0 auto 20px;
     }
-    /* The video element is hidden; MediaPipe uses it internally */
+    /* Hidden video element (used by MediaPipe) */
     #input_video {
       display: none;
     }
+    /* Canvas that displays the annotated video */
     #output_canvas {
       width: 640px;
       height: 480px;
@@ -28,22 +39,25 @@
       background: #000;
       margin-bottom: 20px;
     }
-    .angleDisplay {
-      font-size: 18px;
-      margin-top: 10px;
-    }
-    .sideTitle {
-      font-weight: bold;
-      margin-top: 20px;
-    }
-    #chartContainer {
+    /* Section styling */
+    .section {
       width: 640px;
-      margin: 20px auto;
+      margin: 0 auto;
     }
-    #controls {
-      margin: 20px auto;
+    .measurements {
+      font-size: 18px;
+      margin-bottom: 10px;
     }
-    #controls button {
+    .measurements div {
+      margin: 5px 0;
+    }
+    .chartContainer {
+      margin: 20px 0;
+    }
+    .controls {
+      margin: 20px 0;
+    }
+    .controls button {
       margin: 5px;
       padding: 8px 12px;
       font-size: 16px;
@@ -51,76 +65,130 @@
   </style>
 </head>
 <body>
-  <h1>Upper Body Mobility Tracker with Data Logging & Recording</h1>
+  <h1>Mobility Tracker – Upper & Lower Body</h1>
+  
+  <!-- Tab switcher -->
+  <div id="tabSwitcher">
+    <button id="upperTabBtn">Upper Body</button>
+    <button id="lowerTabBtn">Lower Body</button>
+  </div>
+  
+  <!-- Common video and canvas container (used by both tabs) -->
   <div id="videoContainer">
     <video id="input_video" autoplay playsinline></video>
     <canvas id="output_canvas"></canvas>
   </div>
   
-  <!-- Display for left shoulder measurements -->
-  <div class="sideTitle">Left Shoulder</div>
-  <div id="leftFlex" class="angleDisplay">Flexion: --°</div>
-  <div id="leftAbd" class="angleDisplay">Abduction: --°</div>
-  <div id="leftRot" class="angleDisplay">Rotation (approx.): --°</div>
-  
-  <!-- Display for right shoulder measurements -->
-  <div class="sideTitle">Right Shoulder</div>
-  <div id="rightFlex" class="angleDisplay">Flexion: --°</div>
-  <div id="rightAbd" class="angleDisplay">Abduction: --°</div>
-  <div id="rightRot" class="angleDisplay">Rotation (approx.): --°</div>
-  
-  <!-- Chart container for visualization -->
-  <div id="chartContainer">
-    <canvas id="chartCanvas" width="640" height="300"></canvas>
+  <!-- Upper Body Section -->
+  <div id="upperSection" class="section">
+    <h2>Upper Body Mobility</h2>
+    <div class="measurements">
+      <div id="upperLeftFlex">Left Flexion: --°</div>
+      <div id="upperLeftAbd">Left Abduction: --°</div>
+      <div id="upperLeftRot">Left Rotation: --°</div>
+      <div id="upperRightFlex">Right Flexion: --°</div>
+      <div id="upperRightAbd">Right Abduction: --°</div>
+      <div id="upperRightRot">Right Rotation: --°</div>
+    </div>
+    <div class="chartContainer">
+      <canvas id="chartCanvasUpper" width="640" height="300"></canvas>
+    </div>
+    <div class="controls">
+      <button id="startRecordingUpper">Start Recording</button>
+      <button id="stopRecordingUpper" disabled>Stop Recording</button>
+      <button id="downloadGraphUpper">Download Graph</button>
+      <button id="downloadCSVUpper">Download CSV</button>
+    </div>
   </div>
   
-  <!-- Controls for recording and downloads -->
-  <div id="controls">
-    <button id="startRecording">Start Recording</button>
-    <button id="stopRecording" disabled>Stop Recording</button>
-    <button id="downloadGraph">Download Graph</button>
-    <button id="downloadCSV">Download CSV</button>
+  <!-- Lower Body Section -->
+  <div id="lowerSection" class="section" style="display:none;">
+    <h2>Lower Body Mobility</h2>
+    <div class="measurements">
+      <div id="lowerLeftKnee">Left Knee: --°</div>
+      <div id="lowerLeftAnkle">Left Ankle: --°</div>
+      <div id="lowerRightKnee">Right Knee: --°</div>
+      <div id="lowerRightAnkle">Right Ankle: --°</div>
+    </div>
+    <div class="chartContainer">
+      <canvas id="chartCanvasLower" width="640" height="300"></canvas>
+    </div>
+    <div class="controls">
+      <button id="startRecordingLower">Start Recording</button>
+      <button id="stopRecordingLower" disabled>Stop Recording</button>
+      <button id="downloadGraphLower">Download Graph</button>
+      <button id="downloadCSVLower">Download CSV</button>
+    </div>
   </div>
   
-  <!-- MediaPipe libraries -->
+  <!-- External Libraries -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
-  <!-- Chart.js library -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   
   <script>
-    // --- Setup for video & canvas ---
+    // --- Tab Switching ---
+    const upperSection = document.getElementById('upperSection');
+    const lowerSection = document.getElementById('lowerSection');
+    document.getElementById('upperTabBtn').addEventListener('click', () => {
+      upperSection.style.display = 'block';
+      lowerSection.style.display = 'none';
+    });
+    document.getElementById('lowerTabBtn').addEventListener('click', () => {
+      upperSection.style.display = 'none';
+      lowerSection.style.display = 'block';
+    });
+    
+    // --- Common Video & Canvas Setup ---
     const videoElement = document.getElementById('input_video');
     const canvasElement = document.getElementById('output_canvas');
     const canvasCtx = canvasElement.getContext('2d');
     
-    // --- Data Logging Setup ---
+    // --- MediaPipe Pose Setup ---
+    const pose = new Pose({
+      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
+    });
+    pose.setOptions({
+      modelComplexity: 1,
+      smoothLandmarks: true,
+      minDetectionConfidence: 0.5,
+      minTrackingConfidence: 0.5
+    });
+    
+    // Start the camera using MediaPipe's Camera Utils
+    const camera = new Camera(videoElement, {
+      onFrame: async () => {
+        await pose.send({ image: videoElement });
+      },
+      width: 640,
+      height: 480
+    });
+    camera.start();
+    
+    // --- Data Logging & Chart Setup for Upper Body ---
+    let timeLabelsUpper = [];
+    let upperLeftFlexData = [];
+    let upperLeftAbdData = [];
+    let upperLeftRotData = [];
+    let upperRightFlexData = [];
+    let upperRightAbdData = [];
+    let upperRightRotData = [];
+    let startTimeUpper = Date.now();
+    let isRecordingUpper = false;
     const maxDataPoints = 100;
-    let timeLabels = [];
-    let leftFlexData = [];
-    let leftAbdData = [];
-    let leftRotData = [];
-    let rightFlexData = [];
-    let rightAbdData = [];
-    let rightRotData = [];
-    let startTime = Date.now();
     
-    // Flag to determine if we're logging data for a recording session
-    let isRecordingSession = false;
-    
-    // --- Initialize Chart.js ---
-    const ctxChart = document.getElementById('chartCanvas').getContext('2d');
-    const chart = new Chart(ctxChart, {
+    const ctxChartUpper = document.getElementById('chartCanvasUpper').getContext('2d');
+    const chartUpper = new Chart(ctxChartUpper, {
       type: 'line',
       data: {
-        labels: timeLabels,
+        labels: timeLabelsUpper,
         datasets: [
-          { label: 'Left Flexion', data: leftFlexData, borderColor: 'red', fill: false, tension: 0.1 },
-          { label: 'Left Abduction', data: leftAbdData, borderColor: 'blue', fill: false, tension: 0.1 },
-          { label: 'Left Rotation', data: leftRotData, borderColor: 'green', fill: false, tension: 0.1 },
-          { label: 'Right Flexion', data: rightFlexData, borderColor: 'orange', fill: false, tension: 0.1 },
-          { label: 'Right Abduction', data: rightAbdData, borderColor: 'purple', fill: false, tension: 0.1 },
-          { label: 'Right Rotation', data: rightRotData, borderColor: 'brown', fill: false, tension: 0.1 }
+          { label: 'Left Flexion', data: upperLeftFlexData, borderColor: 'red', fill: false, tension: 0.1 },
+          { label: 'Left Abduction', data: upperLeftAbdData, borderColor: 'blue', fill: false, tension: 0.1 },
+          { label: 'Left Rotation', data: upperLeftRotData, borderColor: 'green', fill: false, tension: 0.1 },
+          { label: 'Right Flexion', data: upperRightFlexData, borderColor: 'orange', fill: false, tension: 0.1 },
+          { label: 'Right Abduction', data: upperRightAbdData, borderColor: 'purple', fill: false, tension: 0.1 },
+          { label: 'Right Rotation', data: upperRightRotData, borderColor: 'brown', fill: false, tension: 0.1 }
         ]
       },
       options: {
@@ -132,42 +200,68 @@
       }
     });
     
-    // --- MediaRecorder Setup for video recording ---
+    // --- Data Logging & Chart Setup for Lower Body ---
+    let timeLabelsLower = [];
+    let lowerLeftKneeData = [];
+    let lowerLeftAnkleData = [];
+    let lowerRightKneeData = [];
+    let lowerRightAnkleData = [];
+    let startTimeLower = Date.now();
+    let isRecordingLower = false;
+    
+    const ctxChartLower = document.getElementById('chartCanvasLower').getContext('2d');
+    const chartLower = new Chart(ctxChartLower, {
+      type: 'line',
+      data: {
+        labels: timeLabelsLower,
+        datasets: [
+          { label: 'Left Knee', data: lowerLeftKneeData, borderColor: 'red', fill: false, tension: 0.1 },
+          { label: 'Left Ankle', data: lowerLeftAnkleData, borderColor: 'blue', fill: false, tension: 0.1 },
+          { label: 'Right Knee', data: lowerRightKneeData, borderColor: 'orange', fill: false, tension: 0.1 },
+          { label: 'Right Ankle', data: lowerRightAnkleData, borderColor: 'purple', fill: false, tension: 0.1 }
+        ]
+      },
+      options: {
+        animation: false,
+        scales: {
+          x: { title: { display: true, text: 'Time (s)' } },
+          y: { title: { display: true, text: 'Angle (°)' } }
+        }
+      }
+    });
+    
+    // --- MediaRecorder Setup (Common for both tabs) ---
     let mediaRecorder = null;
     let recordedChunks = [];
-    const startRecordingBtn = document.getElementById('startRecording');
-    const stopRecordingBtn = document.getElementById('stopRecording');
     
-    startRecordingBtn.addEventListener('click', () => {
-      // Clear previous data for the new session
-      timeLabels = [];
-      leftFlexData = [];
-      leftAbdData = [];
-      leftRotData = [];
-      rightFlexData = [];
-      rightAbdData = [];
-      rightRotData = [];
-      chart.data.labels = timeLabels;
-      chart.data.datasets[0].data = leftFlexData;
-      chart.data.datasets[1].data = leftAbdData;
-      chart.data.datasets[2].data = leftRotData;
-      chart.data.datasets[3].data = rightFlexData;
-      chart.data.datasets[4].data = rightAbdData;
-      chart.data.datasets[5].data = rightRotData;
-      chart.update();
-      
-      // Begin logging data for this recording session
-      isRecordingSession = true;
-      startTime = Date.now();
-      
-      // Start capturing video from the output canvas (30 FPS)
+    // --- Upper Body Controls ---
+    const startRecordingUpperBtn = document.getElementById('startRecordingUpper');
+    const stopRecordingUpperBtn = document.getElementById('stopRecordingUpper');
+    startRecordingUpperBtn.addEventListener('click', () => {
+      // Clear previous upper body data
+      timeLabelsUpper = [];
+      upperLeftFlexData = [];
+      upperLeftAbdData = [];
+      upperLeftRotData = [];
+      upperRightFlexData = [];
+      upperRightAbdData = [];
+      upperRightRotData = [];
+      chartUpper.data.labels = timeLabelsUpper;
+      chartUpper.data.datasets[0].data = upperLeftFlexData;
+      chartUpper.data.datasets[1].data = upperLeftAbdData;
+      chartUpper.data.datasets[2].data = upperLeftRotData;
+      chartUpper.data.datasets[3].data = upperRightFlexData;
+      chartUpper.data.datasets[4].data = upperRightAbdData;
+      chartUpper.data.datasets[5].data = upperRightRotData;
+      chartUpper.update();
+      isRecordingUpper = true;
+      startTimeUpper = Date.now();
+      // Start recording from the output canvas (30 FPS)
       const stream = canvasElement.captureStream(30);
       mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
       recordedChunks = [];
       mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) {
-          recordedChunks.push(e.data);
-        }
+        if (e.data.size > 0) recordedChunks.push(e.data);
       };
       mediaRecorder.onstop = () => {
         const blob = new Blob(recordedChunks, { type: 'video/webm' });
@@ -175,58 +269,130 @@
         const a = document.createElement('a');
         a.style.display = 'none';
         a.href = url;
-        a.download = 'recorded_video.webm';
+        a.download = 'upper_body_recording.webm';
         document.body.appendChild(a);
         a.click();
         setTimeout(() => {
           document.body.removeChild(a);
-          window.URL.revokeObjectURL(url);
+          URL.revokeObjectURL(url);
         }, 100);
       };
       mediaRecorder.start();
-      startRecordingBtn.disabled = true;
-      stopRecordingBtn.disabled = false;
+      startRecordingUpperBtn.disabled = true;
+      stopRecordingUpperBtn.disabled = false;
     });
     
-    stopRecordingBtn.addEventListener('click', () => {
-      if (mediaRecorder) {
-        mediaRecorder.stop();
-      }
-      // Stop logging data
-      isRecordingSession = false;
-      startRecordingBtn.disabled = false;
-      stopRecordingBtn.disabled = true;
+    stopRecordingUpperBtn.addEventListener('click', () => {
+      if (mediaRecorder) mediaRecorder.stop();
+      isRecordingUpper = false;
+      startRecordingUpperBtn.disabled = false;
+      stopRecordingUpperBtn.disabled = true;
     });
     
-    // --- Download Graph as PNG ---
-    document.getElementById('downloadGraph').addEventListener('click', () => {
-      const imageURL = chart.toBase64Image();
+    document.getElementById('downloadGraphUpper').addEventListener('click', () => {
+      const imageURL = chartUpper.toBase64Image();
       const a = document.createElement('a');
       a.href = imageURL;
-      a.download = 'graph.png';
+      a.download = 'upper_body_graph.png';
       a.click();
     });
     
-    // --- Download CSV Data ---
-    document.getElementById('downloadCSV').addEventListener('click', () => {
-      let csvContent = "data:text/csv;charset=utf-8,";
-      csvContent += "Time,Left Flexion,Left Abduction,Left Rotation,Right Flexion,Right Abduction,Right Rotation\n";
-      for (let i = 0; i < timeLabels.length; i++) {
+    document.getElementById('downloadCSVUpper').addEventListener('click', () => {
+      let csvContent = "data:text/csv;charset=utf-8,Time,Left Flexion,Left Abduction,Left Rotation,Right Flexion,Right Abduction,Right Rotation\n";
+      for (let i = 0; i < timeLabelsUpper.length; i++) {
         const row = [
-          timeLabels[i],
-          leftFlexData[i],
-          leftAbdData[i],
-          leftRotData[i],
-          rightFlexData[i],
-          rightAbdData[i],
-          rightRotData[i]
+          timeLabelsUpper[i],
+          upperLeftFlexData[i],
+          upperLeftAbdData[i],
+          upperLeftRotData[i],
+          upperRightFlexData[i],
+          upperRightAbdData[i],
+          upperRightRotData[i]
         ];
         csvContent += row.join(",") + "\n";
       }
       const encodedUri = encodeURI(csvContent);
       const a = document.createElement('a');
       a.href = encodedUri;
-      a.download = "pose_data.csv";
+      a.download = "upper_body_data.csv";
+      a.click();
+    });
+    
+    // --- Lower Body Controls ---
+    const startRecordingLowerBtn = document.getElementById('startRecordingLower');
+    const stopRecordingLowerBtn = document.getElementById('stopRecordingLower');
+    startRecordingLowerBtn.addEventListener('click', () => {
+      // Clear previous lower body data
+      timeLabelsLower = [];
+      lowerLeftKneeData = [];
+      lowerLeftAnkleData = [];
+      lowerRightKneeData = [];
+      lowerRightAnkleData = [];
+      chartLower.data.labels = timeLabelsLower;
+      chartLower.data.datasets[0].data = lowerLeftKneeData;
+      chartLower.data.datasets[1].data = lowerLeftAnkleData;
+      chartLower.data.datasets[2].data = lowerRightKneeData;
+      chartLower.data.datasets[3].data = lowerRightAnkleData;
+      chartLower.update();
+      isRecordingLower = true;
+      startTimeLower = Date.now();
+      // Start recording from the canvas
+      const stream = canvasElement.captureStream(30);
+      mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+      recordedChunks = [];
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) recordedChunks.push(e.data);
+      };
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(recordedChunks, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = 'lower_body_recording.webm';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }, 100);
+      };
+      mediaRecorder.start();
+      startRecordingLowerBtn.disabled = true;
+      stopRecordingLowerBtn.disabled = false;
+    });
+    
+    stopRecordingLowerBtn.addEventListener('click', () => {
+      if (mediaRecorder) mediaRecorder.stop();
+      isRecordingLower = false;
+      startRecordingLowerBtn.disabled = false;
+      stopRecordingLowerBtn.disabled = true;
+    });
+    
+    document.getElementById('downloadGraphLower').addEventListener('click', () => {
+      const imageURL = chartLower.toBase64Image();
+      const a = document.createElement('a');
+      a.href = imageURL;
+      a.download = 'lower_body_graph.png';
+      a.click();
+    });
+    
+    document.getElementById('downloadCSVLower').addEventListener('click', () => {
+      let csvContent = "data:text/csv;charset=utf-8,Time,Left Knee,Left Ankle,Right Knee,Right Ankle\n";
+      for (let i = 0; i < timeLabelsLower.length; i++) {
+        const row = [
+          timeLabelsLower[i],
+          lowerLeftKneeData[i],
+          lowerLeftAnkleData[i],
+          lowerRightKneeData[i],
+          lowerRightAnkleData[i]
+        ];
+        csvContent += row.join(",") + "\n";
+      }
+      const encodedUri = encodeURI(csvContent);
+      const a = document.createElement('a');
+      a.href = encodedUri;
+      a.download = "lower_body_data.csv";
       a.click();
     });
     
@@ -241,7 +407,7 @@
       return angleRad * (180 / Math.PI);
     }
     
-    // --- Utility Function: Draw small red dots for landmarks (skipping face landmarks 0-10) ---
+    // --- Utility Function: Draw small red dots for landmarks (skip face landmarks 0-10) ---
     function drawLandmarks(landmarks) {
       landmarks.forEach((landmark, index) => {
         if (index < 11) return;
@@ -255,7 +421,7 @@
     }
     
     // --- onResults Callback from MediaPipe Pose ---
-    function onResults(results) {
+    pose.onResults((results) => {
       canvasCtx.save();
       canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
       canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
@@ -263,7 +429,8 @@
       if (results.poseLandmarks) {
         drawLandmarks(results.poseLandmarks);
         
-        // LEFT SIDE (landmarks 11, 13, 15)
+        // --- Upper Body Calculations ---
+        // Left: Shoulder (11), Elbow (13), Wrist (15)
         const leftShoulder = results.poseLandmarks[11];
         const leftElbow = results.poseLandmarks[13];
         const leftWrist = results.poseLandmarks[15];
@@ -275,13 +442,11 @@
           const diffYLeft = Math.abs(leftElbow.y - leftShoulder.y);
           leftAbdAngle = Math.atan(diffXLeft / diffYLeft) * (180 / Math.PI);
           leftRotAngle = (leftWrist.x - leftElbow.x) * 100;
-          
-          document.getElementById('leftFlex').innerText = 'Flexion: ' + leftFlexAngle.toFixed(1) + '°';
-          document.getElementById('leftAbd').innerText = 'Abduction: ' + leftAbdAngle.toFixed(1) + '°';
-          document.getElementById('leftRot').innerText = 'Rotation (approx.): ' + leftRotAngle.toFixed(1) + '°';
+          document.getElementById('upperLeftFlex').innerText = 'Left Flexion: ' + leftFlexAngle.toFixed(1) + '°';
+          document.getElementById('upperLeftAbd').innerText = 'Left Abduction: ' + leftAbdAngle.toFixed(1) + '°';
+          document.getElementById('upperLeftRot').innerText = 'Left Rotation: ' + leftRotAngle.toFixed(1) + '°';
         }
-        
-        // RIGHT SIDE (landmarks 12, 14, 16)
+        // Right: Shoulder (12), Elbow (14), Wrist (16)
         const rightShoulder = results.poseLandmarks[12];
         const rightElbow = results.poseLandmarks[14];
         const rightWrist = results.poseLandmarks[16];
@@ -293,60 +458,87 @@
           const diffYRight = Math.abs(rightElbow.y - rightShoulder.y);
           rightAbdAngle = Math.atan(diffXRight / diffYRight) * (180 / Math.PI);
           rightRotAngle = (rightElbow.x - rightWrist.x) * 100;
-          
-          document.getElementById('rightFlex').innerText = 'Flexion: ' + rightFlexAngle.toFixed(1) + '°';
-          document.getElementById('rightAbd').innerText = 'Abduction: ' + rightAbdAngle.toFixed(1) + '°';
-          document.getElementById('rightRot').innerText = 'Rotation (approx.): ' + rightRotAngle.toFixed(1) + '°';
+          document.getElementById('upperRightFlex').innerText = 'Right Flexion: ' + rightFlexAngle.toFixed(1) + '°';
+          document.getElementById('upperRightAbd').innerText = 'Right Abduction: ' + rightAbdAngle.toFixed(1) + '°';
+          document.getElementById('upperRightRot').innerText = 'Right Rotation: ' + rightRotAngle.toFixed(1) + '°';
+        }
+        // Log upper body data if recording
+        if (isRecordingUpper && leftFlexAngle !== null && leftAbdAngle !== null && leftRotAngle !== null &&
+            rightFlexAngle !== null && rightAbdAngle !== null && rightRotAngle !== null) {
+          const currentTime = ((Date.now() - startTimeUpper) / 1000).toFixed(2);
+          timeLabelsUpper.push(currentTime);
+          upperLeftFlexData.push(leftFlexAngle);
+          upperLeftAbdData.push(leftAbdAngle);
+          upperLeftRotData.push(leftRotAngle);
+          upperRightFlexData.push(rightFlexAngle);
+          upperRightAbdData.push(rightAbdAngle);
+          upperRightRotData.push(rightRotAngle);
+          if (timeLabelsUpper.length > maxDataPoints) {
+            timeLabelsUpper.shift();
+            upperLeftFlexData.shift();
+            upperLeftAbdData.shift();
+            upperLeftRotData.shift();
+            upperRightFlexData.shift();
+            upperRightAbdData.shift();
+            upperRightRotData.shift();
+          }
+          chartUpper.update();
         }
         
-        // Log data only if we're in a recording session
-        if (isRecordingSession && leftFlexAngle !== null && leftAbdAngle !== null && leftRotAngle !== null &&
-            rightFlexAngle !== null && rightAbdAngle !== null && rightRotAngle !== null) {
-          const currentTime = ((Date.now() - startTime) / 1000).toFixed(2);
-          timeLabels.push(currentTime);
-          leftFlexData.push(leftFlexAngle);
-          leftAbdData.push(leftAbdAngle);
-          leftRotData.push(leftRotAngle);
-          rightFlexData.push(rightFlexAngle);
-          rightAbdData.push(rightAbdAngle);
-          rightRotData.push(rightRotAngle);
-          
-          if (timeLabels.length > maxDataPoints) {
-            timeLabels.shift();
-            leftFlexData.shift();
-            leftAbdData.shift();
-            leftRotData.shift();
-            rightFlexData.shift();
-            rightAbdData.shift();
-            rightRotData.shift();
+        // --- Lower Body Calculations ---
+        // Left Knee: Hip (23), Knee (25), Ankle (27)
+        const leftHip = results.poseLandmarks[23];
+        const leftKnee = results.poseLandmarks[25];
+        const leftAnkle = results.poseLandmarks[27];
+        let leftKneeAngle = null;
+        if (leftHip && leftKnee && leftAnkle) {
+          leftKneeAngle = calculateAngle(leftHip, leftKnee, leftAnkle);
+          document.getElementById('lowerLeftKnee').innerText = 'Left Knee: ' + leftKneeAngle.toFixed(1) + '°';
+        }
+        // Left Ankle: Knee (25), Ankle (27), Foot Index (31)
+        const leftFootIndex = results.poseLandmarks[31];
+        let leftAnkleAngle = null;
+        if (leftKnee && leftAnkle && leftFootIndex) {
+          leftAnkleAngle = calculateAngle(leftKnee, leftAnkle, leftFootIndex);
+          document.getElementById('lowerLeftAnkle').innerText = 'Left Ankle: ' + leftAnkleAngle.toFixed(1) + '°';
+        }
+        // Right Knee: Hip (24), Knee (26), Ankle (28)
+        const rightHip = results.poseLandmarks[24];
+        const rightKnee = results.poseLandmarks[26];
+        const rightAnkle = results.poseLandmarks[28];
+        let rightKneeAngle = null;
+        if (rightHip && rightKnee && rightAnkle) {
+          rightKneeAngle = calculateAngle(rightHip, rightKnee, rightAnkle);
+          document.getElementById('lowerRightKnee').innerText = 'Right Knee: ' + rightKneeAngle.toFixed(1) + '°';
+        }
+        // Right Ankle: Knee (26), Ankle (28), Foot Index (32)
+        const rightFootIndex = results.poseLandmarks[32];
+        let rightAnkleAngle = null;
+        if (rightKnee && rightAnkle && rightFootIndex) {
+          rightAnkleAngle = calculateAngle(rightKnee, rightAnkle, rightFootIndex);
+          document.getElementById('lowerRightAnkle').innerText = 'Right Ankle: ' + rightAnkleAngle.toFixed(1) + '°';
+        }
+        // Log lower body data if recording
+        if (isRecordingLower && leftKneeAngle !== null && leftAnkleAngle !== null &&
+            rightKneeAngle !== null && rightAnkleAngle !== null) {
+          const currentTime = ((Date.now() - startTimeLower) / 1000).toFixed(2);
+          timeLabelsLower.push(currentTime);
+          lowerLeftKneeData.push(leftKneeAngle);
+          lowerLeftAnkleData.push(leftAnkleAngle);
+          lowerRightKneeData.push(rightKneeAngle);
+          lowerRightAnkleData.push(rightAnkleAngle);
+          if (timeLabelsLower.length > maxDataPoints) {
+            timeLabelsLower.shift();
+            lowerLeftKneeData.shift();
+            lowerLeftAnkleData.shift();
+            lowerRightKneeData.shift();
+            lowerRightAnkleData.shift();
           }
-          chart.update();
+          chartLower.update();
         }
       }
       canvasCtx.restore();
-    }
-    
-    // --- Set up MediaPipe Pose ---
-    const pose = new Pose({
-      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
     });
-    pose.setOptions({
-      modelComplexity: 1,
-      smoothLandmarks: true,
-      minDetectionConfidence: 0.5,
-      minTrackingConfidence: 0.5
-    });
-    pose.onResults(onResults);
-    
-    // --- Set up the camera using MediaPipe's Camera Utils ---
-    const camera = new Camera(videoElement, {
-      onFrame: async () => {
-        await pose.send({ image: videoElement });
-      },
-      width: 640,
-      height: 480
-    });
-    camera.start();
   </script>
 </body>
 </html>
