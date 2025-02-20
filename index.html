@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Data Logging & Visualization – Upper Body Mobility Tracker</title>
+  <title>Upper Body Mobility Tracker – Data Logging & Recording</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -16,7 +16,7 @@
       width: 640px;
       margin: 0 auto;
     }
-    /* The video element is hidden; we use its frames via MediaPipe */
+    /* The video element is hidden; MediaPipe uses it internally */
     #input_video {
       display: none;
     }
@@ -40,27 +40,46 @@
       width: 640px;
       margin: 20px auto;
     }
+    #controls {
+      margin: 20px auto;
+    }
+    #controls button {
+      margin: 5px;
+      padding: 8px 12px;
+      font-size: 16px;
+    }
   </style>
 </head>
 <body>
-  <h1>Upper Body Mobility Tracker with Data Logging</h1>
+  <h1>Upper Body Mobility Tracker with Data Logging & Recording</h1>
   <div id="videoContainer">
     <video id="input_video" autoplay playsinline></video>
     <canvas id="output_canvas"></canvas>
   </div>
   
+  <!-- Display for left shoulder measurements -->
   <div class="sideTitle">Left Shoulder</div>
   <div id="leftFlex" class="angleDisplay">Flexion: --°</div>
   <div id="leftAbd" class="angleDisplay">Abduction: --°</div>
   <div id="leftRot" class="angleDisplay">Rotation (approx.): --°</div>
   
+  <!-- Display for right shoulder measurements -->
   <div class="sideTitle">Right Shoulder</div>
   <div id="rightFlex" class="angleDisplay">Flexion: --°</div>
   <div id="rightAbd" class="angleDisplay">Abduction: --°</div>
   <div id="rightRot" class="angleDisplay">Rotation (approx.): --°</div>
   
+  <!-- Chart container for visualization -->
   <div id="chartContainer">
     <canvas id="chartCanvas" width="640" height="300"></canvas>
+  </div>
+  
+  <!-- Controls for recording and downloads -->
+  <div id="controls">
+    <button id="startRecording">Start Recording</button>
+    <button id="stopRecording" disabled>Stop Recording</button>
+    <button id="downloadGraph">Download Graph</button>
+    <button id="downloadCSV">Download CSV</button>
   </div>
   
   <!-- MediaPipe libraries -->
@@ -86,7 +105,7 @@
     const rightRotData = [];
     let startTime = Date.now();
     
-    // Initialize Chart.js
+    // --- Initialize Chart.js ---
     const ctxChart = document.getElementById('chartCanvas').getContext('2d');
     const chart = new Chart(ctxChart, {
       type: 'line',
@@ -114,8 +133,83 @@
       }
     });
     
+    // --- MediaRecorder Setup ---
+    let mediaRecorder = null;
+    let recordedChunks = [];
+    const startRecordingBtn = document.getElementById('startRecording');
+    const stopRecordingBtn = document.getElementById('stopRecording');
+    
+    startRecordingBtn.addEventListener('click', () => {
+      // Capture stream from the output canvas (which shows video + overlays)
+      const stream = canvasElement.captureStream(30); // 30 FPS
+      mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+      recordedChunks = [];
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          recordedChunks.push(e.data);
+        }
+      };
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(recordedChunks, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = 'recorded_video.webm';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+          document.body.removeChild(a);
+          window.URL.revokeObjectURL(url);
+        }, 100);
+      };
+      mediaRecorder.start();
+      startRecordingBtn.disabled = true;
+      stopRecordingBtn.disabled = false;
+    });
+    
+    stopRecordingBtn.addEventListener('click', () => {
+      if (mediaRecorder) {
+        mediaRecorder.stop();
+        startRecordingBtn.disabled = false;
+        stopRecordingBtn.disabled = true;
+      }
+    });
+    
+    // --- Download Graph as PNG ---
+    document.getElementById('downloadGraph').addEventListener('click', () => {
+      const imageURL = chart.toBase64Image();
+      const a = document.createElement('a');
+      a.href = imageURL;
+      a.download = 'graph.png';
+      a.click();
+    });
+    
+    // --- Download CSV Data ---
+    document.getElementById('downloadCSV').addEventListener('click', () => {
+      let csvContent = "data:text/csv;charset=utf-8,";
+      csvContent += "Time,Left Flexion,Left Abduction,Left Rotation,Right Flexion,Right Abduction,Right Rotation\n";
+      for (let i = 0; i < timeLabels.length; i++) {
+        const row = [
+          timeLabels[i],
+          leftFlexData[i],
+          leftAbdData[i],
+          leftRotData[i],
+          rightFlexData[i],
+          rightAbdData[i],
+          rightRotData[i]
+        ];
+        csvContent += row.join(",") + "\n";
+      }
+      const encodedUri = encodeURI(csvContent);
+      const a = document.createElement('a');
+      a.href = encodedUri;
+      a.download = "pose_data.csv";
+      a.click();
+    });
+    
     // --- Utility Functions ---
-    // Calculate angle between three points (points have properties x and y)
+    // Calculate angle between three points (each with x and y)
     function calculateAngle(A, B, C) {
       const AB = { x: A.x - B.x, y: A.y - B.y };
       const CB = { x: C.x - B.x, y: C.y - B.y };
@@ -126,7 +220,7 @@
       return angleRad * (180 / Math.PI);
     }
     
-    // Draw small red dots for landmarks, skipping face landmarks (indexes 0–10)
+    // Draw small red dots for landmarks, skipping face landmarks (indexes 0-10)
     function drawLandmarks(landmarks) {
       landmarks.forEach((landmark, index) => {
         if (index < 11) return;
@@ -139,7 +233,7 @@
       });
     }
     
-    // --- onResults Callback ---
+    // --- onResults Callback from MediaPipe Pose ---
     function onResults(results) {
       canvasCtx.save();
       canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
@@ -148,16 +242,16 @@
       if (results.poseLandmarks) {
         drawLandmarks(results.poseLandmarks);
         
-        // LEFT SIDE calculations (landmarks 11, 13, 15)
+        // LEFT SIDE (landmarks 11, 13, 15)
         const leftShoulder = results.poseLandmarks[11];
         const leftElbow = results.poseLandmarks[13];
         const leftWrist = results.poseLandmarks[15];
         let leftFlexAngle = null, leftAbdAngle = null, leftRotAngle = null;
         if (leftShoulder && leftElbow && leftWrist) {
-          // Flexion: using a vertical reference point (directly below the shoulder)
+          // Flexion: vertical reference (point directly below shoulder)
           const verticalRefL = { x: leftShoulder.x, y: leftShoulder.y + 0.1 };
           leftFlexAngle = calculateAngle(verticalRefL, leftShoulder, leftElbow);
-          // Abduction: arctan of horizontal diff over vertical diff
+          // Abduction: arctan of horizontal difference / vertical difference
           const diffXLeft = Math.abs(leftElbow.x - leftShoulder.x);
           const diffYLeft = Math.abs(leftElbow.y - leftShoulder.y);
           leftAbdAngle = Math.atan(diffXLeft / diffYLeft) * (180 / Math.PI);
@@ -169,7 +263,7 @@
           document.getElementById('leftRot').innerText = 'Rotation (approx.): ' + leftRotAngle.toFixed(1) + '°';
         }
         
-        // RIGHT SIDE calculations (landmarks 12, 14, 16)
+        // RIGHT SIDE (landmarks 12, 14, 16)
         const rightShoulder = results.poseLandmarks[12];
         const rightElbow = results.poseLandmarks[14];
         const rightWrist = results.poseLandmarks[16];
@@ -187,7 +281,7 @@
           document.getElementById('rightRot').innerText = 'Rotation (approx.): ' + rightRotAngle.toFixed(1) + '°';
         }
         
-        // Log the data for charting if all angles are computed
+        // Log data only if all measurements are available
         if (leftFlexAngle !== null && leftAbdAngle !== null && leftRotAngle !== null &&
             rightFlexAngle !== null && rightAbdAngle !== null && rightRotAngle !== null) {
           const currentTime = ((Date.now() - startTime) / 1000).toFixed(2);
@@ -199,7 +293,7 @@
           rightAbdData.push(rightAbdAngle);
           rightRotData.push(rightRotAngle);
           
-          // Limit the data arrays to the max length
+          // Limit arrays to maximum length
           if (timeLabels.length > maxDataPoints) {
             timeLabels.shift();
             leftFlexData.shift();
@@ -215,7 +309,7 @@
       canvasCtx.restore();
     }
     
-    // --- MediaPipe Pose Setup ---
+    // --- Set up MediaPipe Pose ---
     const pose = new Pose({
       locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
     });
@@ -227,7 +321,7 @@
     });
     pose.onResults(onResults);
     
-    // --- Camera Setup using MediaPipe Camera Utils ---
+    // --- Set up the camera using MediaPipe's Camera Utils ---
     const camera = new Camera(videoElement, {
       onFrame: async () => {
         await pose.send({ image: videoElement });
