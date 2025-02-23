@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>2D Range of Motion Tracking – Multiple Views</title>
+  <title>Range of Motion Tracking</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -26,7 +26,9 @@
       width: 640px;
       margin: 0 auto 20px;
     }
-    #input_video { display: none; }
+    #input_video {
+      display: none;
+    }
     #output_canvas {
       width: 640px;
       height: 480px;
@@ -44,11 +46,24 @@
       font-size: 18px;
       margin-bottom: 10px;
     }
-    .measurements div { margin: 5px 0; }
+    .measurements div {
+      margin: 5px 0;
+    }
+    .chartContainer {
+      margin: 10px 0;
+    }
+    .controls {
+      margin: 10px 0;
+    }
+    .controls button {
+      margin: 5px;
+      padding: 8px 12px;
+      font-size: 16px;
+    }
   </style>
 </head>
 <body>
-  <h1>2D Range of Motion Tracking – Multiple Views</h1>
+  <h1>2D Range of Motion Tracking – Multiple Views with Recording</h1>
   
   <!-- Tab Switcher -->
   <div id="tabSwitcher">
@@ -57,13 +72,13 @@
     <button id="rightTabBtn">Right Side View</button>
   </div>
   
-  <!-- Video and Canvas -->
+  <!-- Video and Canvas for live image -->
   <div id="videoContainer">
     <video id="input_video" autoplay playsinline></video>
     <canvas id="output_canvas"></canvas>
   </div>
   
-  <!-- Front View Section -->
+  <!-- FRONT VIEW SECTION -->
   <div id="frontSection" class="section">
     <h2>Front View Measurements</h2>
     <div class="measurements">
@@ -72,9 +87,18 @@
       <div id="leftShoulderFlex">Left Shoulder Flexion: --°</div>
       <div id="rightShoulderFlex">Right Shoulder Flexion: --°</div>
     </div>
+    <div class="chartContainer">
+      <canvas id="chartCanvasFront" width="640" height="300"></canvas>
+    </div>
+    <div class="controls">
+      <button id="startRecordingFront">Start Recording</button>
+      <button id="stopRecordingFront" disabled>Stop Recording</button>
+      <button id="downloadGraphFront">Download Graph</button>
+      <button id="downloadCSVFront">Download CSV</button>
+    </div>
   </div>
   
-  <!-- Left Side View Section -->
+  <!-- LEFT SIDE VIEW SECTION -->
   <div id="leftSection" class="section" style="display:none;">
     <h2>Left Side View Measurements</h2>
     <div class="measurements">
@@ -82,9 +106,18 @@
       <div id="leftKneeFlex">Left Knee Flexion: --°</div>
       <div id="leftAnkleAngle">Left Ankle Angle: --°</div>
     </div>
+    <div class="chartContainer">
+      <canvas id="chartCanvasLeft" width="640" height="300"></canvas>
+    </div>
+    <div class="controls">
+      <button id="startRecordingLeft">Start Recording</button>
+      <button id="stopRecordingLeft" disabled>Stop Recording</button>
+      <button id="downloadGraphLeft">Download Graph</button>
+      <button id="downloadCSVLeft">Download CSV</button>
+    </div>
   </div>
   
-  <!-- Right Side View Section -->
+  <!-- RIGHT SIDE VIEW SECTION -->
   <div id="rightSection" class="section" style="display:none;">
     <h2>Right Side View Measurements</h2>
     <div class="measurements">
@@ -92,14 +125,24 @@
       <div id="rightKneeFlex">Right Knee Flexion: --°</div>
       <div id="rightAnkleAngle">Right Ankle Angle: --°</div>
     </div>
+    <div class="chartContainer">
+      <canvas id="chartCanvasRight" width="640" height="300"></canvas>
+    </div>
+    <div class="controls">
+      <button id="startRecordingRight">Start Recording</button>
+      <button id="stopRecordingRight" disabled>Stop Recording</button>
+      <button id="downloadGraphRight">Download Graph</button>
+      <button id="downloadCSVRight">Download CSV</button>
+    </div>
   </div>
   
   <!-- External Libraries -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   
   <script>
-    // --- Tab Switching ---
+    // ----- Tab Switching -----
     const frontSection = document.getElementById('frontSection');
     const leftSection  = document.getElementById('leftSection');
     const rightSection = document.getElementById('rightSection');
@@ -120,12 +163,12 @@
       rightSection.style.display = 'block';
     });
     
-    // --- Video & Canvas Setup ---
+    // ----- Video & Canvas Setup -----
     const videoElement  = document.getElementById('input_video');
     const canvasElement = document.getElementById('output_canvas');
     const canvasCtx     = canvasElement.getContext('2d');
     
-    // --- MediaPipe Pose Setup ---
+    // ----- MediaPipe Pose Setup -----
     const pose = new Pose({
       locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
     });
@@ -142,49 +185,205 @@
     });
     camera.start();
     
-    // --- Drawing Functions ---
-    const POSE_CONNECTIONS = [
-      [11, 12],
-      [11, 13], [13, 15],
-      [12, 14], [14, 16],
-      [11, 23],
-      [12, 24],
-      [23, 24],
-      [23, 25], [25, 27],
-      [24, 26], [26, 28],
-      [27, 31],
-      [28, 32]
-    ];
+    // ----- Graph and Data Setup -----
+    const maxDataPoints = 100;
     
-    function drawSkeleton(landmarks) {
-      canvasCtx.lineWidth = 2;
-      canvasCtx.strokeStyle = 'white';
-      POSE_CONNECTIONS.forEach(([i, j]) => {
-        const lm1 = landmarks[i];
-        const lm2 = landmarks[j];
-        if (lm1 && lm2) {
-          canvasCtx.beginPath();
-          canvasCtx.moveTo(lm1.x * canvasElement.width, lm1.y * canvasElement.height);
-          canvasCtx.lineTo(lm2.x * canvasElement.width, lm2.y * canvasElement.height);
-          canvasCtx.stroke();
-        }
-      });
-    }
+    // Front view arrays and flags
+    let timeLabelsFront = [], leftHipAbdData = [], rightHipAbdData = [],
+        leftShoulderFlexData = [], rightShoulderFlexData = [];
+    let isRecordingFront = false, startTimeFront = 0;
     
-    function drawLandmarks(landmarks) {
-      // Skip face (indices 0–10) and hand (indices 17–22)
-      landmarks.forEach((lm, idx) => {
-        if (idx < 11 || (idx >= 17 && idx <= 22)) return;
-        const x = lm.x * canvasElement.width;
-        const y = lm.y * canvasElement.height;
-        canvasCtx.beginPath();
-        canvasCtx.arc(x, y, 3, 0, 2 * Math.PI);
-        canvasCtx.fillStyle = 'red';
-        canvasCtx.fill();
-      });
-    }
+    // Left side view arrays and flags
+    let timeLabelsLeft = [], shoulderRotationLeftData = [],
+        leftKneeFlexData = [], leftAnkleAngleData = [];
+    let isRecordingLeft = false, startTimeLeft = 0;
     
-    // --- Utility: Angle Among Three Points (A–B–C) ---
+    // Right side view arrays and flags
+    let timeLabelsRight = [], shoulderRotationRightData = [],
+        rightKneeFlexData = [], rightAnkleAngleData = [];
+    let isRecordingRight = false, startTimeRight = 0;
+    
+    // Create charts for each view
+    const chartFront = new Chart(document.getElementById('chartCanvasFront').getContext('2d'), {
+      type: 'line',
+      data: {
+        labels: timeLabelsFront,
+        datasets: [
+          { label: 'Left Hip Abd', data: leftHipAbdData, borderColor: 'red', fill: false, tension: 0.1 },
+          { label: 'Right Hip Abd', data: rightHipAbdData, borderColor: 'blue', fill: false, tension: 0.1 },
+          { label: 'Left Shoulder Flex', data: leftShoulderFlexData, borderColor: 'green', fill: false, tension: 0.1 },
+          { label: 'Right Shoulder Flex', data: rightShoulderFlexData, borderColor: 'orange', fill: false, tension: 0.1 }
+        ]
+      },
+      options: {
+        animation: false,
+        scales: { x: { title: { display: true, text: 'Time (s)' } }, y: { title: { display: true, text: 'Angle (°)' } } }
+      }
+    });
+    
+    const chartLeft = new Chart(document.getElementById('chartCanvasLeft').getContext('2d'), {
+      type: 'line',
+      data: {
+        labels: timeLabelsLeft,
+        datasets: [
+          { label: 'Shoulder IR/ER', data: shoulderRotationLeftData, borderColor: 'purple', fill: false, tension: 0.1 },
+          { label: 'Knee Flex', data: leftKneeFlexData, borderColor: 'red', fill: false, tension: 0.1 },
+          { label: 'Ankle Angle', data: leftAnkleAngleData, borderColor: 'blue', fill: false, tension: 0.1 }
+        ]
+      },
+      options: {
+        animation: false,
+        scales: { x: { title: { display: true, text: 'Time (s)' } }, y: { title: { display: true, text: 'Angle (°)' } } }
+      }
+    });
+    
+    const chartRight = new Chart(document.getElementById('chartCanvasRight').getContext('2d'), {
+      type: 'line',
+      data: {
+        labels: timeLabelsRight,
+        datasets: [
+          { label: 'Shoulder IR/ER', data: shoulderRotationRightData, borderColor: 'purple', fill: false, tension: 0.1 },
+          { label: 'Knee Flex', data: rightKneeFlexData, borderColor: 'red', fill: false, tension: 0.1 },
+          { label: 'Ankle Angle', data: rightAnkleAngleData, borderColor: 'blue', fill: false, tension: 0.1 }
+        ]
+      },
+      options: {
+        animation: false,
+        scales: { x: { title: { display: true, text: 'Time (s)' } }, y: { title: { display: true, text: 'Angle (°)' } } }
+      }
+    });
+    
+    // ----- Recording Control Event Listeners -----
+    // Front View Controls
+    document.getElementById('startRecordingFront').addEventListener('click', () => {
+      timeLabelsFront = [];
+      leftHipAbdData = [];
+      rightHipAbdData = [];
+      leftShoulderFlexData = [];
+      rightShoulderFlexData = [];
+      chartFront.data.labels = timeLabelsFront;
+      chartFront.data.datasets[0].data = leftHipAbdData;
+      chartFront.data.datasets[1].data = rightHipAbdData;
+      chartFront.data.datasets[2].data = leftShoulderFlexData;
+      chartFront.data.datasets[3].data = rightShoulderFlexData;
+      chartFront.update();
+      isRecordingFront = true;
+      startTimeFront = Date.now();
+      document.getElementById('startRecordingFront').disabled = true;
+      document.getElementById('stopRecordingFront').disabled = false;
+    });
+    
+    document.getElementById('stopRecordingFront').addEventListener('click', () => {
+      isRecordingFront = false;
+      document.getElementById('startRecordingFront').disabled = false;
+      document.getElementById('stopRecordingFront').disabled = true;
+    });
+    
+    document.getElementById('downloadGraphFront').addEventListener('click', () => {
+      const imageURL = chartFront.toBase64Image();
+      const a = document.createElement('a');
+      a.href = imageURL;
+      a.download = 'front_view_graph.png';
+      a.click();
+    });
+    
+    document.getElementById('downloadCSVFront').addEventListener('click', () => {
+      let csv = "Time,Left Hip Abd,Right Hip Abd,Left Shoulder Flex,Right Shoulder Flex\n";
+      for (let i = 0; i < timeLabelsFront.length; i++) {
+        csv += `${timeLabelsFront[i]},${leftHipAbdData[i]},${rightHipAbdData[i]},${leftShoulderFlexData[i]},${rightShoulderFlexData[i]}\n`;
+      }
+      const a = document.createElement('a');
+      a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+      a.download = 'front_view_data.csv';
+      a.click();
+    });
+    
+    // Left Side View Controls
+    document.getElementById('startRecordingLeft').addEventListener('click', () => {
+      timeLabelsLeft = [];
+      shoulderRotationLeftData = [];
+      leftKneeFlexData = [];
+      leftAnkleAngleData = [];
+      chartLeft.data.labels = timeLabelsLeft;
+      chartLeft.data.datasets[0].data = shoulderRotationLeftData;
+      chartLeft.data.datasets[1].data = leftKneeFlexData;
+      chartLeft.data.datasets[2].data = leftAnkleAngleData;
+      chartLeft.update();
+      isRecordingLeft = true;
+      startTimeLeft = Date.now();
+      document.getElementById('startRecordingLeft').disabled = true;
+      document.getElementById('stopRecordingLeft').disabled = false;
+    });
+    
+    document.getElementById('stopRecordingLeft').addEventListener('click', () => {
+      isRecordingLeft = false;
+      document.getElementById('startRecordingLeft').disabled = false;
+      document.getElementById('stopRecordingLeft').disabled = true;
+    });
+    
+    document.getElementById('downloadGraphLeft').addEventListener('click', () => {
+      const imageURL = chartLeft.toBase64Image();
+      const a = document.createElement('a');
+      a.href = imageURL;
+      a.download = 'left_side_view_graph.png';
+      a.click();
+    });
+    
+    document.getElementById('downloadCSVLeft').addEventListener('click', () => {
+      let csv = "Time,Shoulder IR/ER,Knee Flex,Ankle Angle\n";
+      for (let i = 0; i < timeLabelsLeft.length; i++) {
+        csv += `${timeLabelsLeft[i]},${shoulderRotationLeftData[i]},${leftKneeFlexData[i]},${leftAnkleAngleData[i]}\n`;
+      }
+      const a = document.createElement('a');
+      a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+      a.download = 'left_side_view_data.csv';
+      a.click();
+    });
+    
+    // Right Side View Controls
+    document.getElementById('startRecordingRight').addEventListener('click', () => {
+      timeLabelsRight = [];
+      shoulderRotationRightData = [];
+      rightKneeFlexData = [];
+      rightAnkleAngleData = [];
+      chartRight.data.labels = timeLabelsRight;
+      chartRight.data.datasets[0].data = shoulderRotationRightData;
+      chartRight.data.datasets[1].data = rightKneeFlexData;
+      chartRight.data.datasets[2].data = rightAnkleAngleData;
+      chartRight.update();
+      isRecordingRight = true;
+      startTimeRight = Date.now();
+      document.getElementById('startRecordingRight').disabled = true;
+      document.getElementById('stopRecordingRight').disabled = false;
+    });
+    
+    document.getElementById('stopRecordingRight').addEventListener('click', () => {
+      isRecordingRight = false;
+      document.getElementById('startRecordingRight').disabled = false;
+      document.getElementById('stopRecordingRight').disabled = true;
+    });
+    
+    document.getElementById('downloadGraphRight').addEventListener('click', () => {
+      const imageURL = chartRight.toBase64Image();
+      const a = document.createElement('a');
+      a.href = imageURL;
+      a.download = 'right_side_view_graph.png';
+      a.click();
+    });
+    
+    document.getElementById('downloadCSVRight').addEventListener('click', () => {
+      let csv = "Time,Shoulder IR/ER,Knee Flex,Ankle Angle\n";
+      for (let i = 0; i < timeLabelsRight.length; i++) {
+        csv += `${timeLabelsRight[i]},${shoulderRotationRightData[i]},${rightKneeFlexData[i]},${rightAnkleAngleData[i]}\n`;
+      }
+      const a = document.createElement('a');
+      a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+      a.download = 'right_side_view_data.csv';
+      a.click();
+    });
+    
+    // ----- Measurement Calculations -----
+    // Utility: Angle Among Three Points (A-B-C)
     function angle3pt(A, B, C) {
       const AB = { x: A.x - B.x, y: A.y - B.y };
       const CB = { x: C.x - B.x, y: C.y - B.y };
@@ -197,7 +396,7 @@
       return Math.acos(cosVal) * (180 / Math.PI);
     }
     
-    // --- Utility: Angle Between Two Vectors ---
+    // Utility: Angle Between Two Vectors
     function angleBetweenVectors(a, b) {
       const dot = a.x * b.x + a.y * b.y;
       const magA = Math.sqrt(a.x * a.x + a.y * a.y);
@@ -208,14 +407,14 @@
       return Math.acos(cosVal) * (180 / Math.PI);
     }
     
-    // --- Utility: Signed Angle Between Two Vectors ---
+    // Utility: Signed Angle Between Two Vectors
     function signedAngleBetweenVectors(a, b) {
       const cross = a.x * b.y - a.y * b.x;
       const dot   = a.x * b.x + a.y * b.y;
       return Math.atan2(cross, dot) * (180 / Math.PI);
     }
     
-    // --- onResults Callback ---
+    // ----- Pose onResults Callback -----
     pose.onResults((results) => {
       canvasCtx.save();
       canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
@@ -226,97 +425,109 @@
         drawLandmarks(lm);
         drawSkeleton(lm);
         
-        // Landmarks of interest
-        const leftShoulder  = lm[11];
-        const rightShoulder = lm[12];
-        const leftElbow     = lm[13];
-        const rightElbow    = lm[14];
-        const leftWrist     = lm[15];
-        const rightWrist    = lm[16];
-        const leftHip       = lm[23];
-        const rightHip      = lm[24];
-        const leftKnee      = lm[25];
-        const rightKnee     = lm[26];
-        const leftAnkle     = lm[27];
-        const rightAnkle    = lm[28];
-        const leftFootIdx   = lm[31];
-        const rightFootIdx  = lm[32];
+        // Extract landmarks
+        const leftShoulder  = lm[11], rightShoulder = lm[12],
+              leftElbow     = lm[13], rightElbow    = lm[14],
+              leftWrist     = lm[15], rightWrist    = lm[16],
+              leftHip       = lm[23], rightHip      = lm[24],
+              leftKnee      = lm[25], rightKnee     = lm[26],
+              leftAnkle     = lm[27], rightAnkle    = lm[28],
+              leftFootIdx   = lm[31], rightFootIdx  = lm[32];
         
-        // === FRONT VIEW ===
-        // Hip Abduction/Adduction using a fixed vertical reference {0,1}
+        // --- FRONT VIEW ---
+        // Hip Abduction/Adduction: Compare thigh vector with vertical {0,1}
         if (leftHip && leftKnee) {
           const vertical = { x: 0, y: 1 };
           const thighL = { x: leftKnee.x - leftHip.x, y: leftKnee.y - leftHip.y };
-          const leftAbdAngle = angleBetweenVectors(thighL, vertical);
-          document.getElementById('leftHipAbd').innerText =
-            'Left Hip Abduction: ' + leftAbdAngle.toFixed(1) + '°';
+          const leftHipAngle = angleBetweenVectors(thighL, vertical);
+          document.getElementById('leftHipAbd').innerText = 'Left Hip Abduction: ' + leftHipAngle.toFixed(1) + '°';
+          if (isRecordingFront) {
+            const t = ((Date.now() - startTimeFront) / 1000).toFixed(2);
+            timeLabelsFront.push(t);
+            leftHipAbdData.push(leftHipAngle);
+          }
         }
         if (rightHip && rightKnee) {
           const vertical = { x: 0, y: 1 };
           const thighR = { x: rightKnee.x - rightHip.x, y: rightKnee.y - rightHip.y };
-          const rightAbdAngle = angleBetweenVectors(thighR, vertical);
-          document.getElementById('rightHipAbd').innerText =
-            'Right Hip Abduction: ' + rightAbdAngle.toFixed(1) + '°';
+          const rightHipAngle = angleBetweenVectors(thighR, vertical);
+          document.getElementById('rightHipAbd').innerText = 'Right Hip Abduction: ' + rightHipAngle.toFixed(1) + '°';
+          if (isRecordingFront) {
+            rightHipAbdData.push(rightHipAngle);
+          }
         }
-        // Shoulder Flexion (measured as the angle between a vertical reference and the upper arm)
+        // Shoulder Flexion: Angle between vertical reference and upper arm
         if (leftShoulder && leftElbow) {
           const verticalRefL = { x: leftShoulder.x, y: leftShoulder.y + 0.1 };
-          const leftFlex = angle3pt(verticalRefL, leftShoulder, leftElbow);
-          document.getElementById('leftShoulderFlex').innerText =
-            'Left Shoulder Flexion: ' + leftFlex.toFixed(1) + '°';
+          const leftShoulderFlex = angle3pt(verticalRefL, leftShoulder, leftElbow);
+          document.getElementById('leftShoulderFlex').innerText = 'Left Shoulder Flexion: ' + leftShoulderFlex.toFixed(1) + '°';
+          if (isRecordingFront) {
+            leftShoulderFlexData.push(leftShoulderFlex);
+          }
         }
         if (rightShoulder && rightElbow) {
           const verticalRefR = { x: rightShoulder.x, y: rightShoulder.y + 0.1 };
-          const rightFlex = angle3pt(verticalRefR, rightShoulder, rightElbow);
-          document.getElementById('rightShoulderFlex').innerText =
-            'Right Shoulder Flexion: ' + rightFlex.toFixed(1) + '°';
+          const rightShoulderFlex = angle3pt(verticalRefR, rightShoulder, rightElbow);
+          document.getElementById('rightShoulderFlex').innerText = 'Right Shoulder Flexion: ' + rightShoulderFlex.toFixed(1) + '°';
+          if (isRecordingFront) {
+            rightShoulderFlexData.push(rightShoulderFlex);
+          }
         }
+        if (isRecordingFront) { chartFront.update(); }
         
-        // === LEFT SIDE VIEW ===
-        // Shoulder IR/ER: Use signed angle between upper arm and forearm, then subtract 90° for neutral.
+        // --- LEFT SIDE VIEW ---
+        // Shoulder IR/ER: Calculate signed angle between upper arm and forearm then subtract 90° for neutral
         if (leftShoulder && leftElbow && leftWrist) {
           const upperArmL = { x: leftElbow.x - leftShoulder.x, y: leftElbow.y - leftShoulder.y };
           const forearmL  = { x: leftWrist.x - leftElbow.x,    y: leftWrist.y - leftElbow.y };
           let rawAngleL = signedAngleBetweenVectors(upperArmL, forearmL);
-          // Neutral (90°) yields 0°; adjust by subtracting 90.
-          let shoulderRotationL = rawAngleL - 90;
-          document.getElementById('shoulderRotationLeft').innerText =
-            'Left Shoulder IR/ER: ' + shoulderRotationL.toFixed(1) + '°';
+          let shoulderRotL = rawAngleL - 90;
+          document.getElementById('shoulderRotationLeft').innerText = 'Left Shoulder IR/ER: ' + shoulderRotL.toFixed(1) + '°';
+          if (isRecordingLeft) { shoulderRotationLeftData.push(shoulderRotL); }
         }
-        // Knee Flexion (left)
+        // Left Knee Flexion
         if (leftHip && leftKnee && leftAnkle) {
-          const leftKneeAngle = angle3pt(leftHip, leftKnee, leftAnkle);
-          document.getElementById('leftKneeFlex').innerText =
-            'Left Knee Flexion: ' + leftKneeAngle.toFixed(1) + '°';
+          const leftKneeFlex = angle3pt(leftHip, leftKnee, leftAnkle);
+          document.getElementById('leftKneeFlex').innerText = 'Left Knee Flexion: ' + leftKneeFlex.toFixed(1) + '°';
+          if (isRecordingLeft) { leftKneeFlexData.push(leftKneeFlex); }
         }
-        // Ankle Angle (left)
+        // Left Ankle Angle
         if (leftKnee && leftAnkle && leftFootIdx) {
           const leftAnkleAngle = angle3pt(leftKnee, leftAnkle, leftFootIdx);
-          document.getElementById('leftAnkleAngle').innerText =
-            'Left Ankle Angle: ' + leftAnkleAngle.toFixed(1) + '°';
+          document.getElementById('leftAnkleAngle').innerText = 'Left Ankle Angle: ' + leftAnkleAngle.toFixed(1) + '°';
+          if (isRecordingLeft) { leftAnkleAngleData.push(leftAnkleAngle); }
+        }
+        if (isRecordingLeft) {
+          const t = ((Date.now() - startTimeLeft) / 1000).toFixed(2);
+          timeLabelsLeft.push(t);
+          chartLeft.update();
         }
         
-        // === RIGHT SIDE VIEW ===
+        // --- RIGHT SIDE VIEW ---
         if (rightShoulder && rightElbow && rightWrist) {
           const upperArmR = { x: rightElbow.x - rightShoulder.x, y: rightElbow.y - rightShoulder.y };
           const forearmR  = { x: rightWrist.x - rightElbow.x,    y: rightWrist.y - rightElbow.y };
           let rawAngleR = signedAngleBetweenVectors(upperArmR, forearmR);
-          let shoulderRotationR = rawAngleR - 90;
-          document.getElementById('shoulderRotationRight').innerText =
-            'Right Shoulder IR/ER: ' + shoulderRotationR.toFixed(1) + '°';
+          let shoulderRotR = rawAngleR - 90;
+          document.getElementById('shoulderRotationRight').innerText = 'Right Shoulder IR/ER: ' + shoulderRotR.toFixed(1) + '°';
+          if (isRecordingRight) { shoulderRotationRightData.push(shoulderRotR); }
         }
         if (rightHip && rightKnee && rightAnkle) {
-          const rightKneeAngle = angle3pt(rightHip, rightKnee, rightAnkle);
-          document.getElementById('rightKneeFlex').innerText =
-            'Right Knee Flexion: ' + rightKneeAngle.toFixed(1) + '°';
+          const rightKneeFlex = angle3pt(rightHip, rightKnee, rightAnkle);
+          document.getElementById('rightKneeFlex').innerText = 'Right Knee Flexion: ' + rightKneeFlex.toFixed(1) + '°';
+          if (isRecordingRight) { rightKneeFlexData.push(rightKneeFlex); }
         }
         if (rightKnee && rightAnkle && rightFootIdx) {
           const rightAnkleAngle = angle3pt(rightKnee, rightAnkle, rightFootIdx);
-          document.getElementById('rightAnkleAngle').innerText =
-            'Right Ankle Angle: ' + rightAnkleAngle.toFixed(1) + '°';
+          document.getElementById('rightAnkleAngle').innerText = 'Right Ankle Angle: ' + rightAnkleAngle.toFixed(1) + '°';
+          if (isRecordingRight) { rightAnkleAngleData.push(rightAnkleAngle); }
+        }
+        if (isRecordingRight) {
+          const t = ((Date.now() - startTimeRight) / 1000).toFixed(2);
+          timeLabelsRight.push(t);
+          chartRight.update();
         }
       }
-      
       canvasCtx.restore();
     });
   </script>
