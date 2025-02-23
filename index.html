@@ -20,7 +20,7 @@
       padding: 10px 20px;
       font-size: 16px;
     }
-    /* Video & canvas container */
+    /* Video and canvas container */
     #videoContainer {
       position: relative;
       width: 640px;
@@ -70,7 +70,7 @@
     <canvas id="output_canvas"></canvas>
   </div>
   
-  <!-- Front View Section (Measurements best captured from the front) -->
+  <!-- Front View Section (Best for shoulder and knee flexion) -->
   <div id="frontSection" class="section">
     <h2>Front View Measurements</h2>
     <div class="measurements">
@@ -79,29 +79,31 @@
       <div id="lowerLeftKnee">Left Knee Flexion: --°</div>
       <div id="lowerRightKnee">Right Knee Flexion: --°</div>
     </div>
-    <!-- (Optional: Add charts and recording controls for the front view here) -->
+    <!-- (Optional charts/controls can be added here) -->
   </div>
   
-  <!-- Left Side View Section (Side-view measurements) -->
+  <!-- Left Side View Section (Side view measurements) -->
   <div id="leftSection" class="section" style="display:none;">
     <h2>Left Side View Measurements</h2>
     <div class="measurements">
       <div id="trunkAlignmentLeft">Trunk Alignment: --°</div>
       <div id="pelvicTiltLeft">Pelvic Tilt: --°</div>
       <div id="forwardHeadLeft">Forward Head Posture: --°</div>
+      <div id="shoulderRotationLeft">Left Shoulder Rotation: --°</div>
     </div>
-    <!-- (Optional: Add charts and recording controls for the left side view here) -->
+    <!-- (Optional charts/controls can be added here) -->
   </div>
   
-  <!-- Right Side View Section (Side-view measurements) -->
+  <!-- Right Side View Section (Side view measurements) -->
   <div id="rightSection" class="section" style="display:none;">
     <h2>Right Side View Measurements</h2>
     <div class="measurements">
       <div id="trunkAlignmentRight">Trunk Alignment: --°</div>
       <div id="pelvicTiltRight">Pelvic Tilt: --°</div>
       <div id="forwardHeadRight">Forward Head Posture: --°</div>
+      <div id="shoulderRotationRight">Right Shoulder Rotation: --°</div>
     </div>
-    <!-- (Optional: Add charts and recording controls for the right side view here) -->
+    <!-- (Optional charts/controls can be added here) -->
   </div>
   
   <!-- External Libraries -->
@@ -184,7 +186,7 @@
     }
     function drawLandmarks(landmarks) {
       landmarks.forEach((landmark, index) => {
-        // Skip face landmarks (indices 0–10) and hand landmarks (indices 17–22)
+        // Skip face (indices 0–10) and hand landmarks (indices 17–22)
         if (index < 11 || (index >= 17 && index <= 22)) return;
         const x = landmark.x * canvasElement.width;
         const y = landmark.y * canvasElement.height;
@@ -206,7 +208,6 @@
         drawSkeleton(results.poseLandmarks);
         
         // --- Front View Measurements ---
-        // Shoulder Flexion (using a vertical reference)
         const leftShoulder = results.poseLandmarks[11];
         const leftElbow = results.poseLandmarks[13];
         const rightShoulder = results.poseLandmarks[12];
@@ -221,7 +222,6 @@
           const rightFlex = calculateAngle(verticalRefR, rightShoulder, rightElbow);
           document.getElementById('upperRightFlex').innerText = 'Right Shoulder Flexion: ' + rightFlex.toFixed(1) + '°';
         }
-        // Knee Flexion (angle between hip, knee, and ankle)
         const leftHip = results.poseLandmarks[23];
         const leftKnee = results.poseLandmarks[25];
         const leftAnkle = results.poseLandmarks[27];
@@ -238,7 +238,7 @@
         }
         
         // --- Side View Measurements (Left & Right) ---
-        // Trunk Alignment: Angle between mid-shoulder and mid-hip versus vertical
+        // Trunk Alignment: angle between mid-shoulder and mid-hip versus vertical
         if (leftShoulder && rightShoulder && leftHip && rightHip) {
           const midShoulder = { x: (leftShoulder.x + rightShoulder.x) / 2, y: (leftShoulder.y + rightShoulder.y) / 2 };
           const midHip = { x: (leftHip.x + rightHip.x) / 2, y: (leftHip.y + rightHip.y) / 2 };
@@ -247,7 +247,7 @@
           document.getElementById('trunkAlignmentLeft').innerText = 'Trunk Alignment: ' + trunkAlign.toFixed(1) + '°';
           document.getElementById('trunkAlignmentRight').innerText = 'Trunk Alignment: ' + trunkAlign.toFixed(1) + '°';
         }
-        // Pelvic Tilt: Angle of the line connecting the hips relative to horizontal
+        // Pelvic Tilt: angle of line connecting hips relative to horizontal
         if (leftHip && rightHip) {
           const dx = rightHip.x - leftHip.x;
           const dy = rightHip.y - leftHip.y;
@@ -256,7 +256,6 @@
           document.getElementById('pelvicTiltRight').innerText = 'Pelvic Tilt: ' + pelvicTilt.toFixed(1) + '°';
         }
         // Forward Head Posture:
-        // For left side view, use left ear & left shoulder; for right, use right ear & right shoulder.
         const leftEar = results.poseLandmarks[7];
         if (leftEar && leftShoulder) {
           const fwdHeadLeft = Math.atan2(Math.abs(leftEar.x - leftShoulder.x), leftShoulder.y - leftEar.y) * (180 / Math.PI);
@@ -266,6 +265,18 @@
         if (rightEar && rightShoulder) {
           const fwdHeadRight = Math.atan2(Math.abs(rightEar.x - rightShoulder.x), rightShoulder.y - rightEar.y) * (180 / Math.PI);
           document.getElementById('forwardHeadRight').innerText = 'Forward Head Posture: ' + fwdHeadRight.toFixed(1) + '°';
+        }
+        // --- Shoulder Rotation (Side Views) ---
+        // For side views, we use a simple heuristic:
+        // Left Side View: (leftElbow.x - leftShoulder.x) * 180 (positive indicates external rotation)
+        // Right Side View: (rightShoulder.x - rightElbow.x) * 180
+        if (leftShoulder && leftElbow) {
+          const rotationLeft = (leftElbow.x - leftShoulder.x) * 180;
+          document.getElementById('shoulderRotationLeft').innerText = 'Left Shoulder Rotation: ' + rotationLeft.toFixed(1) + '°';
+        }
+        if (rightShoulder && rightElbow) {
+          const rotationRight = (rightShoulder.x - rightElbow.x) * 180;
+          document.getElementById('shoulderRotationRight').innerText = 'Right Shoulder Rotation: ' + rotationRight.toFixed(1) + '°';
         }
       }
       canvasCtx.restore();
