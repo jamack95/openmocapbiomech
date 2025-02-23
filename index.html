@@ -11,7 +11,6 @@
       text-align: center;
       padding: 20px;
     }
-    /* Tab switcher buttons */
     #tabSwitcher {
       margin-bottom: 20px;
     }
@@ -20,7 +19,6 @@
       padding: 10px 20px;
       font-size: 16px;
     }
-    /* Video and canvas container */
     #videoContainer {
       position: relative;
       width: 640px;
@@ -37,7 +35,6 @@
       background: #000;
       margin-bottom: 20px;
     }
-    /* Section styling */
     .section {
       width: 640px;
       margin: 0 auto;
@@ -67,14 +64,12 @@
     <canvas id="output_canvas"></canvas>
   </div>
   
-  <!-- Front View Section (Shoulder & Knee Flexion) -->
+  <!-- Front View Section (Hip Abduction/Adduction) -->
   <div id="frontSection" class="section">
     <h2>Front View Measurements</h2>
     <div class="measurements">
-      <div id="upperLeftFlex">Left Shoulder Flexion: --°</div>
-      <div id="upperRightFlex">Right Shoulder Flexion: --°</div>
-      <div id="lowerLeftKnee">Left Knee Flexion: --°</div>
-      <div id="lowerRightKnee">Right Knee Flexion: --°</div>
+      <div id="leftHipAbd">Left Hip Abduction: --°</div>
+      <div id="rightHipAbd">Right Hip Abduction: --°</div>
     </div>
   </div>
   
@@ -82,10 +77,9 @@
   <div id="leftSection" class="section" style="display:none;">
     <h2>Left Side View Measurements</h2>
     <div class="measurements">
-      <div id="trunkAlignmentLeft">Trunk Alignment: --°</div>
-      <div id="pelvicTiltLeft">Pelvic Tilt: --°</div>
-      <div id="forwardHeadLeft">Forward Head Posture: --°</div>
       <div id="shoulderRotationLeft">Left Shoulder IR/ER: --°</div>
+      <div id="leftKneeFlex">Left Knee Flexion: --°</div>
+      <div id="leftAnkleAngle">Left Ankle Angle: --°</div>
     </div>
   </div>
   
@@ -93,10 +87,9 @@
   <div id="rightSection" class="section" style="display:none;">
     <h2>Right Side View Measurements</h2>
     <div class="measurements">
-      <div id="trunkAlignmentRight">Trunk Alignment: --°</div>
-      <div id="pelvicTiltRight">Pelvic Tilt: --°</div>
-      <div id="forwardHeadRight">Forward Head Posture: --°</div>
       <div id="shoulderRotationRight">Right Shoulder IR/ER: --°</div>
+      <div id="rightKneeFlex">Right Knee Flexion: --°</div>
+      <div id="rightAnkleAngle">Right Ankle Angle: --°</div>
     </div>
   </div>
   
@@ -141,7 +134,6 @@
       minDetectionConfidence: 0.5,
       minTrackingConfidence: 0.5
     });
-    
     const camera = new Camera(videoElement, {
       onFrame: async () => {
         await pose.send({ image: videoElement });
@@ -151,7 +143,7 @@
     });
     camera.start();
     
-    // --- Draw Skeleton & Landmarks ---
+    // --- Drawing Connections & Landmarks ---
     const POSE_CONNECTIONS = [
       [11, 12],
       [11, 13], [13, 15],
@@ -164,13 +156,10 @@
       [27, 31],
       [28, 32]
     ];
-    
     function drawSkeleton(landmarks) {
-      if (!landmarks) return;
       canvasCtx.lineWidth = 2;
       canvasCtx.strokeStyle = 'white';
-      POSE_CONNECTIONS.forEach(pair => {
-        const [i, j] = pair;
+      POSE_CONNECTIONS.forEach(([i, j]) => {
         const lm1 = landmarks[i];
         const lm2 = landmarks[j];
         if (lm1 && lm2) {
@@ -181,13 +170,12 @@
         }
       });
     }
-    
     function drawLandmarks(landmarks) {
-      landmarks.forEach((landmark, index) => {
-        // Skip face landmarks (0–10) and hand landmarks (17–22)
+      landmarks.forEach((lm, index) => {
+        // Skip face (0–10) and hand landmarks (17–22)
         if (index < 11 || (index >= 17 && index <= 22)) return;
-        const x = landmark.x * canvasElement.width;
-        const y = landmark.y * canvasElement.height;
+        const x = lm.x * canvasElement.width;
+        const y = lm.y * canvasElement.height;
         canvasCtx.beginPath();
         canvasCtx.arc(x, y, 3, 0, 2 * Math.PI);
         canvasCtx.fillStyle = 'red';
@@ -195,146 +183,173 @@
       });
     }
     
-    // --- Pose onResults ---
+    // --- onResults Callback ---
     pose.onResults((results) => {
       canvasCtx.save();
       canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
       canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
       
       if (results.poseLandmarks) {
-        drawLandmarks(results.poseLandmarks);
-        drawSkeleton(results.poseLandmarks);
+        const lm = results.poseLandmarks;
+        drawLandmarks(lm);
+        drawSkeleton(lm);
         
-        // --- FRONT VIEW: Shoulder & Knee Flexion ---
-        const leftShoulder = results.poseLandmarks[11];
-        const leftElbow = results.poseLandmarks[13];
-        const rightShoulder = results.poseLandmarks[12];
-        const rightElbow = results.poseLandmarks[14];
+        // Landmarks of interest
+        const leftHip    = lm[23];
+        const rightHip   = lm[24];
+        const leftKnee   = lm[25];
+        const rightKnee  = lm[26];
+        const leftAnkle  = lm[27];
+        const rightAnkle = lm[28];
+        const leftShoulder = lm[11];
+        const rightShoulder= lm[12];
+        const leftElbow  = lm[13];
+        const rightElbow = lm[14];
+        const leftWrist  = lm[15];
+        const rightWrist = lm[16];
+        const leftFootIndex  = lm[31];
+        const rightFootIndex = lm[32];
         
-        // Shoulder flexion
-        if (leftShoulder && leftElbow) {
-          const verticalRefL = { x: leftShoulder.x, y: leftShoulder.y + 0.1 };
-          const leftFlex = calculateAngle3pt(verticalRefL, leftShoulder, leftElbow);
-          document.getElementById('upperLeftFlex').innerText = 'Left Shoulder Flexion: ' + leftFlex.toFixed(1) + '°';
-        }
-        if (rightShoulder && rightElbow) {
-          const verticalRefR = { x: rightShoulder.x, y: rightShoulder.y + 0.1 };
-          const rightFlex = calculateAngle3pt(verticalRefR, rightShoulder, rightElbow);
-          document.getElementById('upperRightFlex').innerText = 'Right Shoulder Flexion: ' + rightFlex.toFixed(1) + '°';
-        }
-        
-        // Knee flexion
-        const leftHip = results.poseLandmarks[23];
-        const leftKnee = results.poseLandmarks[25];
-        const leftAnkle = results.poseLandmarks[27];
-        const rightHip = results.poseLandmarks[24];
-        const rightKnee = results.poseLandmarks[26];
-        const rightAnkle = results.poseLandmarks[28];
-        
-        if (leftHip && leftKnee && leftAnkle) {
-          const leftKneeAngle = calculateAngle3pt(leftHip, leftKnee, leftAnkle);
-          document.getElementById('lowerLeftKnee').innerText = 'Left Knee Flexion: ' + leftKneeAngle.toFixed(1) + '°';
-        }
-        if (rightHip && rightKnee && rightAnkle) {
-          const rightKneeAngle = calculateAngle3pt(rightHip, rightKnee, rightAnkle);
-          document.getElementById('lowerRightKnee').innerText = 'Right Knee Flexion: ' + rightKneeAngle.toFixed(1) + '°';
-        }
-        
-        // --- SIDE VIEWS: Trunk Alignment, Pelvic Tilt, Forward Head, Shoulder IR/ER ---
-        
-        // 1) Trunk Alignment (angle between mid-shoulder and mid-hip vs. vertical)
-        if (leftShoulder && rightShoulder && leftHip && rightHip) {
-          const midShoulder = { 
-            x: (leftShoulder.x + rightShoulder.x) / 2,
-            y: (leftShoulder.y + rightShoulder.y) / 2
+        // === FRONT VIEW: Hip Abduction/Adduction ===
+        if (leftHip && rightHip && leftKnee) {
+          // Vector from leftHip -> rightHip
+          const pelvisLineL = { 
+            x: rightHip.x - leftHip.x, 
+            y: rightHip.y - leftHip.y 
           };
-          const midHip = {
-            x: (leftHip.x + rightHip.x) / 2,
-            y: (leftHip.y + rightHip.y) / 2
+          // Vector from leftHip -> leftKnee
+          const thighLineL = { 
+            x: leftKnee.x - leftHip.x, 
+            y: leftKnee.y - leftHip.y 
           };
-          const verticalRef = { x: midShoulder.x, y: midShoulder.y + 0.1 };
-          const trunkAlign = calculateAngle3pt(verticalRef, midShoulder, midHip);
-          document.getElementById('trunkAlignmentLeft').innerText = 'Trunk Alignment: ' + trunkAlign.toFixed(1) + '°';
-          document.getElementById('trunkAlignmentRight').innerText = 'Trunk Alignment: ' + trunkAlign.toFixed(1) + '°';
+          const leftAbdAngle = angleBetweenVectors(pelvisLineL, thighLineL);
+          document.getElementById('leftHipAbd').innerText =
+            'Left Hip Abduction: ' + leftAbdAngle.toFixed(1) + '°';
         }
         
-        // 2) Pelvic Tilt (line connecting hips relative to horizontal)
-        if (leftHip && rightHip) {
-          const dx = rightHip.x - leftHip.x;
-          const dy = rightHip.y - leftHip.y;
-          const pelvicTilt = Math.atan2(dy, dx) * (180 / Math.PI);
-          document.getElementById('pelvicTiltLeft').innerText = 'Pelvic Tilt: ' + pelvicTilt.toFixed(1) + '°';
-          document.getElementById('pelvicTiltRight').innerText = 'Pelvic Tilt: ' + pelvicTilt.toFixed(1) + '°';
+        if (leftHip && rightHip && rightKnee) {
+          // Vector from rightHip -> leftHip
+          const pelvisLineR = { 
+            x: leftHip.x - rightHip.x, 
+            y: leftHip.y - rightHip.y 
+          };
+          // Vector from rightHip -> rightKnee
+          const thighLineR = {
+            x: rightKnee.x - rightHip.x,
+            y: rightKnee.y - rightHip.y
+          };
+          const rightAbdAngle = angleBetweenVectors(pelvisLineR, thighLineR);
+          document.getElementById('rightHipAbd').innerText =
+            'Right Hip Abduction: ' + rightAbdAngle.toFixed(1) + '°';
         }
         
-        // 3) Forward Head Posture
-        const leftEar = results.poseLandmarks[7];
-        if (leftEar && leftShoulder) {
-          const fwdHeadLeft = Math.atan2(Math.abs(leftEar.x - leftShoulder.x), leftShoulder.y - leftEar.y) * (180 / Math.PI);
-          document.getElementById('forwardHeadLeft').innerText = 'Forward Head Posture: ' + fwdHeadLeft.toFixed(1) + '°';
-        }
-        const rightEar = results.poseLandmarks[8];
-        if (rightEar && rightShoulder) {
-          const fwdHeadRight = Math.atan2(Math.abs(rightEar.x - rightShoulder.x), rightShoulder.y - rightEar.y) * (180 / Math.PI);
-          document.getElementById('forwardHeadRight').innerText = 'Forward Head Posture: ' + fwdHeadRight.toFixed(1) + '°';
-        }
-        
-        // 4) Shoulder Internal/External Rotation (side view)
-        //    We measure the signed angle between:
-        //    humerusVec = (elbow - shoulder)
-        //    forearmVec = (wrist - elbow)
-        //    If angle is positive => external rotation, negative => internal rotation
-        //    (User should keep arm abducted to 90° & elbow bent to ~90° in the side plane)
-        
-        if (leftShoulder && leftElbow && leftHip && leftAnkle) {
-          const rotationLeft = calculateSignedAngle(
-            { x: leftElbow.x - leftShoulder.x, y: leftElbow.y - leftShoulder.y }, 
-            { x: leftAnkle.x - leftElbow.x,    y: leftAnkle.y - leftElbow.y }
-          );
-          // Show as positive = external, negative = internal
+        // === LEFT SIDE VIEW: Shoulder IR/ER, Knee Flexion, Ankle Angle ===
+        // Shoulder IR/ER
+        if (leftShoulder && leftElbow && leftWrist) {
+          // Vector from shoulder->elbow
+          const upperArmL = {
+            x: leftElbow.x - leftShoulder.x,
+            y: leftElbow.y - leftShoulder.y
+          };
+          // Vector from elbow->wrist
+          const forearmL = {
+            x: leftWrist.x - leftElbow.x,
+            y: leftWrist.y - leftElbow.y
+          };
+          let rotationLeft = signedAngleBetweenVectors(upperArmL, forearmL);
+          // Apply ~80° offset fix
+          rotationLeft -= 80;
           document.getElementById('shoulderRotationLeft').innerText =
             'Left Shoulder IR/ER: ' + rotationLeft.toFixed(1) + '°';
         }
-        if (rightShoulder && rightElbow && rightHip && rightAnkle) {
-          const rotationRight = calculateSignedAngle(
-            { x: rightElbow.x - rightShoulder.x, y: rightElbow.y - rightShoulder.y },
-            { x: rightAnkle.x - rightElbow.x,    y: rightAnkle.y - rightElbow.y }
-          );
+        
+        // Knee Flexion
+        if (leftHip && leftKnee && leftAnkle) {
+          const leftKneeFlexVal = angle3pt(leftHip, leftKnee, leftAnkle);
+          document.getElementById('leftKneeFlex').innerText =
+            'Left Knee Flexion: ' + leftKneeFlexVal.toFixed(1) + '°';
+        }
+        
+        // Ankle Angle
+        if (leftKnee && leftAnkle && leftFootIndex) {
+          const leftAnkleAngleVal = angle3pt(leftKnee, leftAnkle, leftFootIndex);
+          document.getElementById('leftAnkleAngle').innerText =
+            'Left Ankle Angle: ' + leftAnkleAngleVal.toFixed(1) + '°';
+        }
+        
+        // === RIGHT SIDE VIEW: Shoulder IR/ER, Knee Flexion, Ankle Angle ===
+        if (rightShoulder && rightElbow && rightWrist) {
+          const upperArmR = {
+            x: rightElbow.x - rightShoulder.x,
+            y: rightElbow.y - rightShoulder.y
+          };
+          const forearmR = {
+            x: rightWrist.x - rightElbow.x,
+            y: rightWrist.y - rightElbow.y
+          };
+          let rotationRight = signedAngleBetweenVectors(upperArmR, forearmR);
+          // Apply ~80° offset fix
+          rotationRight -= 80;
           document.getElementById('shoulderRotationRight').innerText =
             'Right Shoulder IR/ER: ' + rotationRight.toFixed(1) + '°';
+        }
+        
+        if (rightHip && rightKnee && rightAnkle) {
+          const rightKneeFlexVal = angle3pt(rightHip, rightKnee, rightAnkle);
+          document.getElementById('rightKneeFlex').innerText =
+            'Right Knee Flexion: ' + rightKneeFlexVal.toFixed(1) + '°';
+        }
+        
+        if (rightKnee && rightAnkle && rightFootIndex) {
+          const rightAnkleAngleVal = angle3pt(rightKnee, rightAnkle, rightFootIndex);
+          document.getElementById('rightAnkleAngle').innerText =
+            'Right Ankle Angle: ' + rightAnkleAngleVal.toFixed(1) + '°';
         }
       }
       
       canvasCtx.restore();
     });
     
-    // --- Utility: Angle Between Three Points (A-B-C) ---
-    // Used for flexion measurements (front view, trunk alignment, etc.)
-    function calculateAngle3pt(A, B, C) {
+    // --- Utility: Angle Between Two Vectors (for hip abduction) ---
+    function angleBetweenVectors(vecA, vecB) {
+      const dot = vecA.x * vecB.x + vecA.y * vecB.y;
+      const magA = Math.sqrt(vecA.x * vecA.x + vecA.y * vecA.y);
+      const magB = Math.sqrt(vecB.x * vecB.x + vecB.y * vecB.y);
+      if (magA === 0 || magB === 0) return 0;
+      
+      let cosVal = dot / (magA * magB);
+      cosVal = Math.max(-1, Math.min(1, cosVal)); // clamp
+      return Math.acos(cosVal) * (180 / Math.PI);
+    }
+    
+    // --- Utility: Angle Among Three Points A-B-C (for knee/ankle) ---
+    function angle3pt(A, B, C) {
       const AB = { x: A.x - B.x, y: A.y - B.y };
       const CB = { x: C.x - B.x, y: C.y - B.y };
       const dot = AB.x * CB.x + AB.y * CB.y;
       const magAB = Math.sqrt(AB.x * AB.x + AB.y * AB.y);
       const magCB = Math.sqrt(CB.x * CB.x + CB.y * CB.y);
-      const angleRad = Math.acos(dot / (magAB * magCB));
-      return angleRad * (180 / Math.PI);
+      if (magAB === 0 || magCB === 0) return 0;
+      
+      let cosVal = dot / (magAB * magCB);
+      cosVal = Math.max(-1, Math.min(1, cosVal)); // clamp
+      return Math.acos(cosVal) * (180 / Math.PI);
     }
     
-    // --- Utility: Signed Angle Between Two 2D Vectors (for IR/ER) ---
-    // Positive => external rotation, Negative => internal rotation (approx.)
-    function calculateSignedAngle(vecA, vecB) {
-      const crossZ = vecA.x * vecB.y - vecA.y * vecB.x;  // z-component of cross product
-      const dot = vecA.x * vecB.x + vecA.y * vecB.y;
-      const magA = Math.sqrt(vecA.x * vecA.x + vecA.y * vecA.y);
-      const magB = Math.sqrt(vecB.x * vecB.x + vecB.y * vecB.y);
+    // --- Utility: Signed Angle Between Two Vectors (for shoulder IR/ER) ---
+    function signedAngleBetweenVectors(a, b) {
+      const crossZ = a.x * b.y - a.y * b.x; // z-component of cross product
+      const dot = a.x * b.x + a.y * b.y;
+      const magA = Math.sqrt(a.x * a.x + a.y * a.y);
+      const magB = Math.sqrt(b.x * b.x + b.y * b.y);
+      if (magA === 0 || magB === 0) return 0;
       
-      // Clamp dot product to avoid floating-point errors in acos
       let cosVal = dot / (magA * magB);
-      cosVal = Math.max(-1, Math.min(1, cosVal));
-      
-      const angleRad = Math.acos(cosVal);
-      const sign = (crossZ >= 0) ? 1 : -1;
-      return sign * angleRad * (180 / Math.PI);
+      cosVal = Math.max(-1, Math.min(1, cosVal)); // clamp for floating-point
+      const angle = Math.acos(cosVal); // 0..π
+      // Determine sign via cross product
+      const sign = crossZ >= 0 ? 1 : -1;
+      return angle * (180 / Math.PI) * sign;
     }
   </script>
 </body>
