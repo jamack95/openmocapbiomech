@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Mobility Tracker – Upper & Lower Body</title>
+  <title>Mobility Tracker – Upper &amp; Lower Body Assessment</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -65,7 +65,7 @@
   </style>
 </head>
 <body>
-  <h1>Mobility Tracker – Upper & Lower Body</h1>
+  <h1>Mobility Tracker – Upper &amp; Lower Body Assessment</h1>
   
   <!-- Tab switcher -->
   <div id="tabSwitcher">
@@ -165,6 +165,52 @@
     });
     camera.start();
     
+    // --- Define Skeleton Connections (landmark index pairs) ---
+    const POSE_CONNECTIONS = [
+      [11, 12],       // Shoulders
+      [11, 13], [13, 15],  // Left Arm
+      [12, 14], [14, 16],  // Right Arm
+      [11, 23],       // Left Shoulder to Left Hip
+      [12, 24],       // Right Shoulder to Right Hip
+      [23, 24],       // Hips
+      [23, 25], [25, 27],  // Left Leg
+      [24, 26], [26, 28],  // Right Leg
+      [27, 31],       // Left Ankle to Foot
+      [28, 32]        // Right Ankle to Foot
+    ];
+    
+    // --- Utility Function: Draw Skeleton ---
+    function drawSkeleton(landmarks) {
+      if (!landmarks) return;
+      canvasCtx.lineWidth = 2;
+      canvasCtx.strokeStyle = 'white';
+      POSE_CONNECTIONS.forEach(pair => {
+        const [i, j] = pair;
+        const lm1 = landmarks[i];
+        const lm2 = landmarks[j];
+        if (lm1 && lm2) {
+          canvasCtx.beginPath();
+          canvasCtx.moveTo(lm1.x * canvasElement.width, lm1.y * canvasElement.height);
+          canvasCtx.lineTo(lm2.x * canvasElement.width, lm2.y * canvasElement.height);
+          canvasCtx.stroke();
+        }
+      });
+    }
+    
+    // --- Utility Function: Draw Landmarks (skip face and hand landmarks) ---
+    function drawLandmarks(landmarks) {
+      landmarks.forEach((landmark, index) => {
+        // Skip face landmarks (indices 0–10) and hand landmarks (indices 17–22)
+        if (index < 11 || (index >= 17 && index <= 22)) return;
+        const x = landmark.x * canvasElement.width;
+        const y = landmark.y * canvasElement.height;
+        canvasCtx.beginPath();
+        canvasCtx.arc(x, y, 3, 0, 2 * Math.PI);
+        canvasCtx.fillStyle = 'red';
+        canvasCtx.fill();
+      });
+    }
+    
     // --- Data Logging & Chart Setup for Upper Body ---
     let timeLabelsUpper = [];
     let upperLeftFlexData = [];
@@ -238,7 +284,6 @@
     const startRecordingUpperBtn = document.getElementById('startRecordingUpper');
     const stopRecordingUpperBtn = document.getElementById('stopRecordingUpper');
     startRecordingUpperBtn.addEventListener('click', () => {
-      // Clear previous upper body data
       timeLabelsUpper = [];
       upperLeftFlexData = [];
       upperLeftAbdData = [];
@@ -256,7 +301,6 @@
       chartUpper.update();
       isRecordingUpper = true;
       startTimeUpper = Date.now();
-      // Start recording from the output canvas (30 FPS)
       const stream = canvasElement.captureStream(30);
       mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
       recordedChunks = [];
@@ -322,7 +366,6 @@
     const startRecordingLowerBtn = document.getElementById('startRecordingLower');
     const stopRecordingLowerBtn = document.getElementById('stopRecordingLower');
     startRecordingLowerBtn.addEventListener('click', () => {
-      // Clear previous lower body data
       timeLabelsLower = [];
       lowerLeftKneeData = [];
       lowerLeftAnkleData = [];
@@ -336,7 +379,6 @@
       chartLower.update();
       isRecordingLower = true;
       startTimeLower = Date.now();
-      // Start recording from the canvas
       const stream = canvasElement.captureStream(30);
       mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
       recordedChunks = [];
@@ -396,30 +438,6 @@
       a.click();
     });
     
-    // --- Utility Function: Calculate angle between three points (each with x and y) ---
-    function calculateAngle(A, B, C) {
-      const AB = { x: A.x - B.x, y: A.y - B.y };
-      const CB = { x: C.x - B.x, y: C.y - B.y };
-      const dot = AB.x * CB.x + AB.y * CB.y;
-      const magAB = Math.sqrt(AB.x * AB.x + AB.y * AB.y);
-      const magCB = Math.sqrt(CB.x * CB.x + CB.y * CB.y);
-      const angleRad = Math.acos(dot / (magAB * magCB));
-      return angleRad * (180 / Math.PI);
-    }
-    
-    // --- Utility Function: Draw small red dots for landmarks (skip face landmarks 0-10) ---
-    function drawLandmarks(landmarks) {
-      landmarks.forEach((landmark, index) => {
-        if (index < 11) return;
-        const x = landmark.x * canvasElement.width;
-        const y = landmark.y * canvasElement.height;
-        canvasCtx.beginPath();
-        canvasCtx.arc(x, y, 3, 0, 2 * Math.PI);
-        canvasCtx.fillStyle = 'red';
-        canvasCtx.fill();
-      });
-    }
-    
     // --- onResults Callback from MediaPipe Pose ---
     pose.onResults((results) => {
       canvasCtx.save();
@@ -428,9 +446,9 @@
       
       if (results.poseLandmarks) {
         drawLandmarks(results.poseLandmarks);
+        drawSkeleton(results.poseLandmarks);
         
         // --- Upper Body Calculations ---
-        // Left: Shoulder (11), Elbow (13), Wrist (15)
         const leftShoulder = results.poseLandmarks[11];
         const leftElbow = results.poseLandmarks[13];
         const leftWrist = results.poseLandmarks[15];
@@ -446,7 +464,6 @@
           document.getElementById('upperLeftAbd').innerText = 'Left Abduction: ' + leftAbdAngle.toFixed(1) + '°';
           document.getElementById('upperLeftRot').innerText = 'Left Rotation: ' + leftRotAngle.toFixed(1) + '°';
         }
-        // Right: Shoulder (12), Elbow (14), Wrist (16)
         const rightShoulder = results.poseLandmarks[12];
         const rightElbow = results.poseLandmarks[14];
         const rightWrist = results.poseLandmarks[16];
@@ -462,7 +479,6 @@
           document.getElementById('upperRightAbd').innerText = 'Right Abduction: ' + rightAbdAngle.toFixed(1) + '°';
           document.getElementById('upperRightRot').innerText = 'Right Rotation: ' + rightRotAngle.toFixed(1) + '°';
         }
-        // Log upper body data if recording
         if (isRecordingUpper && leftFlexAngle !== null && leftAbdAngle !== null && leftRotAngle !== null &&
             rightFlexAngle !== null && rightAbdAngle !== null && rightRotAngle !== null) {
           const currentTime = ((Date.now() - startTimeUpper) / 1000).toFixed(2);
@@ -486,7 +502,6 @@
         }
         
         // --- Lower Body Calculations ---
-        // Left Knee: Hip (23), Knee (25), Ankle (27)
         const leftHip = results.poseLandmarks[23];
         const leftKnee = results.poseLandmarks[25];
         const leftAnkle = results.poseLandmarks[27];
@@ -495,14 +510,12 @@
           leftKneeAngle = calculateAngle(leftHip, leftKnee, leftAnkle);
           document.getElementById('lowerLeftKnee').innerText = 'Left Knee: ' + leftKneeAngle.toFixed(1) + '°';
         }
-        // Left Ankle: Knee (25), Ankle (27), Foot Index (31)
         const leftFootIndex = results.poseLandmarks[31];
         let leftAnkleAngle = null;
         if (leftKnee && leftAnkle && leftFootIndex) {
           leftAnkleAngle = calculateAngle(leftKnee, leftAnkle, leftFootIndex);
           document.getElementById('lowerLeftAnkle').innerText = 'Left Ankle: ' + leftAnkleAngle.toFixed(1) + '°';
         }
-        // Right Knee: Hip (24), Knee (26), Ankle (28)
         const rightHip = results.poseLandmarks[24];
         const rightKnee = results.poseLandmarks[26];
         const rightAnkle = results.poseLandmarks[28];
@@ -511,14 +524,12 @@
           rightKneeAngle = calculateAngle(rightHip, rightKnee, rightAnkle);
           document.getElementById('lowerRightKnee').innerText = 'Right Knee: ' + rightKneeAngle.toFixed(1) + '°';
         }
-        // Right Ankle: Knee (26), Ankle (28), Foot Index (32)
         const rightFootIndex = results.poseLandmarks[32];
         let rightAnkleAngle = null;
         if (rightKnee && rightAnkle && rightFootIndex) {
           rightAnkleAngle = calculateAngle(rightKnee, rightAnkle, rightFootIndex);
           document.getElementById('lowerRightAnkle').innerText = 'Right Ankle: ' + rightAnkleAngle.toFixed(1) + '°';
         }
-        // Log lower body data if recording
         if (isRecordingLower && leftKneeAngle !== null && leftAnkleAngle !== null &&
             rightKneeAngle !== null && rightAnkleAngle !== null) {
           const currentTime = ((Date.now() - startTimeLower) / 1000).toFixed(2);
@@ -539,6 +550,17 @@
       }
       canvasCtx.restore();
     });
+    
+    // --- Utility Function: Calculate Angle Between Three Points ---
+    function calculateAngle(A, B, C) {
+      const AB = { x: A.x - B.x, y: A.y - B.y };
+      const CB = { x: C.x - B.x, y: C.y - B.y };
+      const dot = AB.x * CB.x + AB.y * CB.y;
+      const magAB = Math.sqrt(AB.x * AB.x + AB.y * AB.y);
+      const magCB = Math.sqrt(CB.x * CB.x + CB.y * CB.y);
+      const angleRad = Math.acos(dot / (magAB * magCB));
+      return angleRad * (180 / Math.PI);
+    }
   </script>
 </body>
 </html>
