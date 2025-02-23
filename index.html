@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>2D Range of Motion Tracking – Debug Mode</title>
+  <title>2D Range of Motion Tracking – Multiple Views (No Downloads)</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -63,7 +63,7 @@
   </style>
 </head>
 <body>
-  <h1>2D Range of Motion Tracking – Debug Mode</h1>
+  <h1>2D Range of Motion Tracking – Multiple Views (No Downloads)</h1>
   
   <!-- Tab Switcher -->
   <div id="tabSwitcher">
@@ -93,8 +93,6 @@
     <div class="controls">
       <button id="startRecordingFront">Start Recording</button>
       <button id="stopRecordingFront" disabled>Stop Recording</button>
-      <button id="downloadGraphFront">Download Graph</button>
-      <button id="downloadCSVFront">Download CSV</button>
     </div>
   </div>
   
@@ -112,8 +110,6 @@
     <div class="controls">
       <button id="startRecordingLeft">Start Recording</button>
       <button id="stopRecordingLeft" disabled>Stop Recording</button>
-      <button id="downloadGraphLeft">Download Graph</button>
-      <button id="downloadCSVLeft">Download CSV</button>
     </div>
   </div>
   
@@ -131,8 +127,6 @@
     <div class="controls">
       <button id="startRecordingRight">Start Recording</button>
       <button id="stopRecordingRight" disabled>Stop Recording</button>
-      <button id="downloadGraphRight">Download Graph</button>
-      <button id="downloadCSVRight">Download CSV</button>
     </div>
   </div>
   
@@ -216,7 +210,10 @@
       },
       options: {
         animation: false,
-        scales: { x: { title: { display: true, text: 'Time (s)' } }, y: { title: { display: true, text: 'Angle (°)' } } }
+        scales: { 
+          x: { title: { display: true, text: 'Time (s)' } },
+          y: { title: { display: true, text: 'Angle (°)' } }
+        }
       }
     });
     
@@ -232,7 +229,10 @@
       },
       options: {
         animation: false,
-        scales: { x: { title: { display: true, text: 'Time (s)' } }, y: { title: { display: true, text: 'Angle (°)' } } }
+        scales: { 
+          x: { title: { display: true, text: 'Time (s)' } },
+          y: { title: { display: true, text: 'Angle (°)' } }
+        }
       }
     });
     
@@ -248,7 +248,10 @@
       },
       options: {
         animation: false,
-        scales: { x: { title: { display: true, text: 'Time (s)' } }, y: { title: { display: true, text: 'Angle (°)' } } }
+        scales: { 
+          x: { title: { display: true, text: 'Time (s)' } },
+          y: { title: { display: true, text: 'Angle (°)' } }
+        }
       }
     });
     
@@ -276,23 +279,6 @@
       document.getElementById('startRecordingFront').disabled = false;
       document.getElementById('stopRecordingFront').disabled = true;
     });
-    document.getElementById('downloadGraphFront').addEventListener('click', () => {
-      const imageURL = chartFront.toBase64Image();
-      const a = document.createElement('a');
-      a.href = imageURL;
-      a.download = 'front_view_graph.png';
-      a.click();
-    });
-    document.getElementById('downloadCSVFront').addEventListener('click', () => {
-      let csv = "Time,Left Hip Abd,Right Hip Abd,Left Shoulder Flex,Right Shoulder Flex\n";
-      for (let i = 0; i < timeLabelsFront.length; i++) {
-        csv += `${timeLabelsFront[i]},${leftHipAbdData[i]},${rightHipAbdData[i]},${leftShoulderFlexData[i]},${rightShoulderFlexData[i]}\n`;
-      }
-      const a = document.createElement('a');
-      a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
-      a.download = 'front_view_data.csv';
-      a.click();
-    });
     
     // Left Side View Controls
     document.getElementById('startRecordingLeft').addEventListener('click', () => {
@@ -315,23 +301,6 @@
       document.getElementById('startRecordingLeft').disabled = false;
       document.getElementById('stopRecordingLeft').disabled = true;
     });
-    document.getElementById('downloadGraphLeft').addEventListener('click', () => {
-      const imageURL = chartLeft.toBase64Image();
-      const a = document.createElement('a');
-      a.href = imageURL;
-      a.download = 'left_side_view_graph.png';
-      a.click();
-    });
-    document.getElementById('downloadCSVLeft').addEventListener('click', () => {
-      let csv = "Time,Shoulder IR/ER,Knee Flex,Ankle Angle\n";
-      for (let i = 0; i < timeLabelsLeft.length; i++) {
-        csv += `${timeLabelsLeft[i]},${shoulderRotationLeftData[i]},${leftKneeFlexData[i]},${leftAnkleAngleData[i]}\n`;
-      }
-      const a = document.createElement('a');
-      a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
-      a.download = 'left_side_view_data.csv';
-      a.click();
-    });
     
     // Right Side View Controls
     document.getElementById('startRecordingRight').addEventListener('click', () => {
@@ -353,23 +322,6 @@
       isRecordingRight = false;
       document.getElementById('startRecordingRight').disabled = false;
       document.getElementById('stopRecordingRight').disabled = true;
-    });
-    document.getElementById('downloadGraphRight').addEventListener('click', () => {
-      const imageURL = chartRight.toBase64Image();
-      const a = document.createElement('a');
-      a.href = imageURL;
-      a.download = 'right_side_view_graph.png';
-      a.click();
-    });
-    document.getElementById('downloadCSVRight').addEventListener('click', () => {
-      let csv = "Time,Shoulder IR/ER,Knee Flex,Ankle Angle\n";
-      for (let i = 0; i < timeLabelsRight.length; i++) {
-        csv += `${timeLabelsRight[i]},${shoulderRotationRightData[i]},${rightKneeFlexData[i]},${rightAnkleAngleData[i]}\n`;
-      }
-      const a = document.createElement('a');
-      a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
-      a.download = 'right_side_view_data.csv';
-      a.click();
     });
     
     // ----- Measurement Calculations -----
@@ -410,12 +362,12 @@
       
       if (results.poseLandmarks) {
         const lm = results.poseLandmarks;
-        // Draw every landmark without filtering for debugging:
+        // Draw every landmark (debug mode: no filtering)
         lm.forEach(lm => {
           const x = lm.x * canvasElement.width;
           const y = lm.y * canvasElement.height;
           canvasCtx.beginPath();
-          canvasCtx.arc(x, y, 5, 0, 2 * Math.PI); // increased radius for visibility
+          canvasCtx.arc(x, y, 5, 0, 2 * Math.PI);
           canvasCtx.fillStyle = 'lime';
           canvasCtx.fill();
         });
