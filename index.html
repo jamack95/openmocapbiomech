@@ -3,35 +3,81 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>2D Range of Motion Tracking – Multiple Views with Recording</title>
+  <title>2D Range of Motion Tracking – Debug Mode</title>
   <style>
-    body { font-family: Arial, sans-serif; background: #f4f4f4; text-align: center; padding: 20px; }
-    #tabSwitcher { margin-bottom: 20px; }
-    #tabSwitcher button { margin: 0 10px; padding: 10px 20px; font-size: 16px; }
-    #videoContainer { position: relative; width: 640px; margin: 0 auto 20px; }
-    #input_video { display: none; }
-    #output_canvas { width: 640px; height: 480px; border: 2px solid #333; border-radius: 8px; background: #000; margin-bottom: 20px; }
-    .section { width: 640px; margin: 0 auto; }
-    .measurements { font-size: 18px; margin-bottom: 10px; }
-    .measurements div { margin: 5px 0; }
-    .chartContainer { margin: 10px 0; }
-    .controls { margin: 10px 0; }
-    .controls button { margin: 5px; padding: 8px 12px; font-size: 16px; }
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
+      text-align: center;
+      padding: 20px;
+    }
+    /* Tab switcher */
+    #tabSwitcher {
+      margin-bottom: 20px;
+    }
+    #tabSwitcher button {
+      margin: 0 10px;
+      padding: 10px 20px;
+      font-size: 16px;
+    }
+    /* Video & canvas */
+    #videoContainer {
+      position: relative;
+      width: 640px;
+      margin: 0 auto 20px;
+    }
+    #input_video {
+      display: none;
+    }
+    #output_canvas {
+      width: 640px;
+      height: 480px;
+      border: 2px solid #333;
+      border-radius: 8px;
+      background: #000;
+      margin-bottom: 20px;
+    }
+    /* Sections */
+    .section {
+      width: 640px;
+      margin: 0 auto;
+    }
+    .measurements {
+      font-size: 18px;
+      margin-bottom: 10px;
+    }
+    .measurements div {
+      margin: 5px 0;
+    }
+    .chartContainer {
+      margin: 10px 0;
+    }
+    .controls {
+      margin: 10px 0;
+    }
+    .controls button {
+      margin: 5px;
+      padding: 8px 12px;
+      font-size: 16px;
+    }
   </style>
 </head>
 <body>
-  <h1>2D Range of Motion Tracking – Multiple Views with Recording</h1>
+  <h1>2D Range of Motion Tracking – Debug Mode</h1>
+  
   <!-- Tab Switcher -->
   <div id="tabSwitcher">
     <button id="frontTabBtn">Front View</button>
     <button id="leftTabBtn">Left Side View</button>
     <button id="rightTabBtn">Right Side View</button>
   </div>
+  
   <!-- Video and Canvas for live image -->
   <div id="videoContainer">
     <video id="input_video" autoplay playsinline></video>
     <canvas id="output_canvas"></canvas>
   </div>
+  
   <!-- FRONT VIEW SECTION -->
   <div id="frontSection" class="section">
     <h2>Front View Measurements</h2>
@@ -51,6 +97,7 @@
       <button id="downloadCSVFront">Download CSV</button>
     </div>
   </div>
+  
   <!-- LEFT SIDE VIEW SECTION -->
   <div id="leftSection" class="section" style="display:none;">
     <h2>Left Side View Measurements</h2>
@@ -69,6 +116,7 @@
       <button id="downloadCSVLeft">Download CSV</button>
     </div>
   </div>
+  
   <!-- RIGHT SIDE VIEW SECTION -->
   <div id="rightSection" class="section" style="display:none;">
     <h2>Right Side View Measurements</h2>
@@ -140,14 +188,17 @@
     // ----- Graph and Data Setup -----
     const maxDataPoints = 100;
     
+    // Front view arrays and flags
     let timeLabelsFront = [], leftHipAbdData = [], rightHipAbdData = [],
         leftShoulderFlexData = [], rightShoulderFlexData = [];
     let isRecordingFront = false, startTimeFront = 0;
     
+    // Left side view arrays and flags
     let timeLabelsLeft = [], shoulderRotationLeftData = [],
         leftKneeFlexData = [], leftAnkleAngleData = [];
     let isRecordingLeft = false, startTimeLeft = 0;
     
+    // Right side view arrays and flags
     let timeLabelsRight = [], shoulderRotationRightData = [],
         rightKneeFlexData = [], rightAnkleAngleData = [];
     let isRecordingRight = false, startTimeRight = 0;
@@ -350,17 +401,27 @@
       return Math.atan2(cross, dot) * (180 / Math.PI);
     }
     
-    // ----- Pose onResults Callback (without try/catch) -----
+    // ----- Pose onResults Callback -----
     pose.onResults((results) => {
+      console.log("Pose Landmarks:", results.poseLandmarks);
       canvasCtx.save();
       canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
       canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
       
       if (results.poseLandmarks) {
         const lm = results.poseLandmarks;
-        drawLandmarks(lm);
+        // Draw every landmark without filtering for debugging:
+        lm.forEach(lm => {
+          const x = lm.x * canvasElement.width;
+          const y = lm.y * canvasElement.height;
+          canvasCtx.beginPath();
+          canvasCtx.arc(x, y, 5, 0, 2 * Math.PI); // increased radius for visibility
+          canvasCtx.fillStyle = 'lime';
+          canvasCtx.fill();
+        });
         drawSkeleton(lm);
         
+        // Extract landmarks
         const leftShoulder  = lm[11], rightShoulder = lm[12],
               leftElbow     = lm[13], rightElbow    = lm[14],
               leftWrist     = lm[15], rightWrist    = lm[16],
