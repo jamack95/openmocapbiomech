@@ -11,7 +11,7 @@
       text-align: center;
       padding: 20px;
     }
-    /* Tab switcher */
+    /* Tab Switcher */
     #tabSwitcher {
       margin-bottom: 20px;
     }
@@ -37,7 +37,7 @@
       background: #000;
       margin-bottom: 20px;
     }
-    /* Section styling */
+    /* Section Styling */
     .section {
       width: 640px;
       margin: 0 auto;
@@ -82,7 +82,7 @@
   <div id="frontSection" class="section">
     <h2>Front View Measurements</h2>
     <div class="measurements">
-      <!-- Example: tracking hip abduction and shoulder flexion -->
+      <!-- For example, tracking hip abduction and shoulder flexion -->
       <div id="leftHipAbd">Left Hip Abduction: --°</div>
       <div id="rightHipAbd">Right Hip Abduction: --°</div>
       <div id="leftShoulderFlex">Left Shoulder Flexion: --°</div>
@@ -103,7 +103,7 @@
   <div id="leftSection" class="section" style="display:none;">
     <h2>Left Side View Measurements</h2>
     <div class="measurements">
-      <!-- Example: tracking shoulder internal/external rotation, knee flexion, and ankle angle -->
+      <!-- For example, tracking shoulder IR/ER, knee flexion, and ankle angle -->
       <div id="shoulderRotationLeft">Left Shoulder IR/ER: --°</div>
       <div id="leftKneeFlex">Left Knee Flexion: --°</div>
       <div id="leftAnkleAngle">Left Ankle Angle: --°</div>
@@ -150,17 +150,17 @@
     const rightSection = document.getElementById('rightSection');
     document.getElementById('frontTabBtn').addEventListener('click', () => {
       frontSection.style.display = 'block';
-      leftSection.style.display  = 'none';
+      leftSection.style.display = 'none';
       rightSection.style.display = 'none';
     });
     document.getElementById('leftTabBtn').addEventListener('click', () => {
       frontSection.style.display = 'none';
-      leftSection.style.display  = 'block';
+      leftSection.style.display = 'block';
       rightSection.style.display = 'none';
     });
     document.getElementById('rightTabBtn').addEventListener('click', () => {
       frontSection.style.display = 'none';
-      leftSection.style.display  = 'none';
+      leftSection.style.display = 'none';
       rightSection.style.display = 'block';
     });
     
@@ -217,10 +217,9 @@
     }
     
     // Draw landmarks with modifications:
-    // - Only the nose (index 0) is drawn from the face.
-    // - For the left hand, average landmarks 17-19 are drawn as one dot.
-    // - For the right hand, average landmarks 20-22 are drawn as one dot.
-    // - All other landmarks (except face indices 1-10 and hand indices 17-22) are drawn normally.
+    // - Draw only the nose from the face (index 0)
+    // - Do NOT compute an average for the hand; skip hand landmarks (indices 17-22)
+    // - Draw all other landmarks (which includes the wrist points at indices 15 and 16)
     function drawLandmarks(landmarks) {
       // Draw nose (index 0)
       if (landmarks[0]) {
@@ -233,51 +232,8 @@
         canvasCtx.fill();
       }
       
-      // Draw left hand (average of indices 17,18,19)
-      if (landmarks.length > 19) {
-        let leftHandIndices = [17, 18, 19];
-        let sumX = 0, sumY = 0, count = 0;
-        leftHandIndices.forEach(i => {
-          if (landmarks[i]) {
-            sumX += landmarks[i].x;
-            sumY += landmarks[i].y;
-            count++;
-          }
-        });
-        if (count > 0) {
-          let avgX = sumX / count;
-          let avgY = sumY / count;
-          canvasCtx.beginPath();
-          canvasCtx.arc(avgX * canvasElement.width, avgY * canvasElement.height, 3, 0, 2 * Math.PI);
-          canvasCtx.fillStyle = 'red';
-          canvasCtx.fill();
-        }
-      }
-      
-      // Draw right hand (average of indices 20,21,22)
-      if (landmarks.length > 22) {
-        let rightHandIndices = [20, 21, 22];
-        let sumX = 0, sumY = 0, count = 0;
-        rightHandIndices.forEach(i => {
-          if (landmarks[i]) {
-            sumX += landmarks[i].x;
-            sumY += landmarks[i].y;
-            count++;
-          }
-        });
-        if (count > 0) {
-          let avgX = sumX / count;
-          let avgY = sumY / count;
-          canvasCtx.beginPath();
-          canvasCtx.arc(avgX * canvasElement.width, avgY * canvasElement.height, 3, 0, 2 * Math.PI);
-          canvasCtx.fillStyle = 'red';
-          canvasCtx.fill();
-        }
-      }
-      
-      // Draw all other landmarks (skip face 1-10 and hand 17-22)
+      // Draw all other landmarks, skipping face indices 1-10 and hand indices 17-22
       landmarks.forEach((lm, idx) => {
-        if (idx === 0) return;
         if (idx >= 1 && idx <= 10) return;
         if (idx >= 17 && idx <= 22) return;
         const x = lm.x * canvasElement.width;
@@ -342,7 +298,10 @@
       },
       options: {
         animation: false,
-        scales: { x: { title: { display: true, text: 'Time (s)' } }, y: { title: { display: true, text: 'Angle (°)' } } }
+        scales: { 
+          x: { title: { display: true, text: 'Time (s)' } },
+          y: { title: { display: true, text: 'Angle (°)' } }
+        }
       }
     });
     
@@ -367,7 +326,10 @@
       },
       options: {
         animation: false,
-        scales: { x: { title: { display: true, text: 'Time (s)' } }, y: { title: { display: true, text: 'Angle (°)' } } }
+        scales: { 
+          x: { title: { display: true, text: 'Time (s)' } },
+          y: { title: { display: true, text: 'Angle (°)' } }
+        }
       }
     });
     
@@ -392,12 +354,15 @@
       },
       options: {
         animation: false,
-        scales: { x: { title: { display: true, text: 'Time (s)' } }, y: { title: { display: true, text: 'Angle (°)' } } }
+        scales: { 
+          x: { title: { display: true, text: 'Time (s)' } },
+          y: { title: { display: true, text: 'Angle (°)' } }
+        }
       }
     });
     
     // --- Recording Control Event Listeners ---
-    // Front View
+    // Front View Controls
     let mediaRecorder;
     let recordedChunks = [];
     document.getElementById('startRecordingFront').addEventListener('click', () => {
@@ -457,7 +422,7 @@
       a.click();
     });
     
-    // Left Side View
+    // Left Side View Controls
     document.getElementById('startRecordingLeft').addEventListener('click', () => {
       timeLabelsLeft = [];
       shoulderRotationLeftData = [];
@@ -513,7 +478,7 @@
       a.click();
     });
     
-    // Right Side View
+    // Right Side View Controls
     document.getElementById('startRecordingRight').addEventListener('click', () => {
       timeLabelsRight = [];
       shoulderRotationRightData = [];
@@ -581,7 +546,7 @@
         drawLandmarks(lm);
         drawSkeleton(lm);
         
-        // --- Front View Calculations ---
+        // Extract landmarks for Front View
         const leftShoulder  = lm[11], rightShoulder = lm[12],
               leftElbow     = lm[13], rightElbow    = lm[14],
               leftWrist     = lm[15], rightWrist    = lm[16],
@@ -589,7 +554,7 @@
               leftKnee      = lm[25], rightKnee     = lm[26],
               leftAnkle     = lm[27], rightAnkle    = lm[28];
         
-        // Hip Abduction (using a vertical reference {0,1})
+        // FRONT VIEW: Hip Abduction & Shoulder Flexion
         if(leftHip && leftKnee){
           const vertical = { x: 0, y: 1 };
           const thighL = { x: leftKnee.x - leftHip.x, y: leftKnee.y - leftHip.y };
@@ -606,7 +571,6 @@
           timeLabelsFront.push(((Date.now()-startTimeFront)/1000).toFixed(2));
           rightHipAbdData.push(rightHipAngle);
         }
-        // Shoulder Flexion (angle between vertical reference and upper arm)
         if(leftShoulder && leftElbow){
           const verticalRefL = { x: leftShoulder.x, y: leftShoulder.y+0.1 };
           const leftFlex = angle3pt(verticalRefL, leftShoulder, leftElbow);
@@ -623,7 +587,7 @@
         }
         if(isRecordingFront){ chartFront.update(); }
         
-        // --- Left Side View Calculations ---
+        // LEFT SIDE VIEW: Shoulder IR/ER, Knee Flexion, Ankle Angle
         if(leftShoulder && leftElbow && leftWrist){
           const upperArmL = { x: leftElbow.x - leftShoulder.x, y: leftElbow.y - leftShoulder.y };
           const forearmL  = { x: leftWrist.x - leftElbow.x,    y: leftWrist.y - leftElbow.y };
@@ -639,9 +603,9 @@
           timeLabelsLeft.push(((Date.now()-startTimeLeft)/1000).toFixed(2));
           leftKneeFlexData.push(leftKneeFlex);
         }
-        // For a simplified ankle angle, use a vertical reference below the ankle
+        // For Left Ankle Angle, using a vertical reference below the ankle
         if(leftKnee && leftAnkle){
-          const ankleRef = { x: leftAnkle.x, y: leftAnkle.y + 0.1 };
+          const ankleRef = { x: leftAnkle.x, y: leftAnkle.y+0.1 };
           const leftAnkleAngle = angle3pt(leftKnee, leftAnkle, ankleRef);
           document.getElementById('leftAnkleAngle').innerText = 'Left Ankle Angle: ' + leftAnkleAngle.toFixed(1) + '°';
           timeLabelsLeft.push(((Date.now()-startTimeLeft)/1000).toFixed(2));
@@ -649,7 +613,7 @@
         }
         if(isRecordingLeft){ chartLeft.update(); }
         
-        // --- Right Side View Calculations ---
+        // RIGHT SIDE VIEW: Shoulder IR/ER, Knee Flexion, Ankle Angle
         if(rightShoulder && rightElbow && rightWrist){
           const upperArmR = { x: rightElbow.x - rightShoulder.x, y: rightElbow.y - rightShoulder.y };
           const forearmR  = { x: rightWrist.x - rightElbow.x,    y: rightWrist.y - rightElbow.y };
@@ -666,7 +630,7 @@
           rightKneeFlexData.push(rightKneeFlex);
         }
         if(rightKnee && rightAnkle){
-          const ankleRefR = { x: rightAnkle.x, y: rightAnkle.y + 0.1 };
+          const ankleRefR = { x: rightAnkle.x, y: rightAnkle.y+0.1 };
           const rightAnkleAngle = angle3pt(rightKnee, rightAnkle, ankleRefR);
           document.getElementById('rightAnkleAngle').innerText = 'Right Ankle Angle: ' + rightAnkleAngle.toFixed(1) + '°';
           timeLabelsRight.push(((Date.now()-startTimeRight)/1000).toFixed(2));
